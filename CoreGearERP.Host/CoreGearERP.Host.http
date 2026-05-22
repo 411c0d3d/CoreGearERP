@@ -1,0 +1,6 @@
+@CoreGearERP.Host_HostAddress = http://localhost:5014
+
+GET {{CoreGearERP.Host_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
