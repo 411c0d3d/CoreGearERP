@@ -1,0 +1,26 @@
+using CoreGearERP.Common.Application.Interfaces;
+using CoreGearERP.Common.Domain.Entities;
+using Microsoft.EntityFrameworkCore;
+
+namespace CoreGearERP.Inventory.Infrastructure.Persistence;
+
+/// <summary>EF Core DbContext scoped to the Inventory module. Owns the inventory schema only.</summary>
+public class InventoryDbContext : DbContext
+{
+    private readonly ICurrentTenant _currentTenant;
+
+    public InventoryDbContext(DbContextOptions<InventoryDbContext> options, ICurrentTenant currentTenant)
+        : base(options)
+    {
+        _currentTenant = currentTenant;
+    }
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        base.OnModelCreating(modelBuilder);
+
+        modelBuilder.HasDefaultSchema("inventory");
+
+        modelBuilder.ApplyConfigurationsFromAssembly(typeof(InventoryDbContext).Assembly);
+    }
+}

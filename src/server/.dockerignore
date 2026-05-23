@@ -1,0 +1,58 @@
+## CoreGearERP .dockerignore
+## Prevents unnecessary files from being sent to the Docker build context.
+## Keeps images lean and prevents secrets from leaking into images.
+
+# ─── .NET Build Output ────────────────────────────────────────────────────────
+**/bin/
+**/obj/
+**/out/
+
+# ─── .NET User Secrets ────────────────────────────────────────────────────────
+# Never bake local secrets into a Docker image.
+**/secrets.json
+**/*.user
+
+# ─── EF Core Migrations Design Time ──────────────────────────────────────────
+# Not needed at runtime.
+**/Migrations/
+
+# ─── Angular ──────────────────────────────────────────────────────────────────
+**/node_modules/
+**/dist/
+**/.angular/
+
+# ─── Git ──────────────────────────────────────────────────────────────────────
+**/.git/
+**/.gitignore
+**/.gitattributes
+
+# ─── IDE ──────────────────────────────────────────────────────────────────────
+**/.idea/
+**/.vs/
+**/*.suo
+**/*.user
+**/*.rsuser
+
+# ─── Docs ─────────────────────────────────────────────────────────────────────
+**/README.md
+**/adr.md
+**/dbMigrationSteps.md
+**/docs/
+
+# ─── Tests ────────────────────────────────────────────────────────────────────
+# Tests do not belong in production images.
+**/tests/
+**/*.Tests/
+
+# ─── Docker ───────────────────────────────────────────────────────────────────
+# Ignore override files -- they contain local dev config.
+**/docker-compose.override.yml
+
+# ─── OS ───────────────────────────────────────────────────────────────────────
+**/.DS_Store
+**/Thumbs.db
+**/desktop.ini
+
+# ─── Logs ─────────────────────────────────────────────────────────────────────
+**/logs/
+**/*.log

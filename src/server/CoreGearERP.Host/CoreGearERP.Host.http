@@ -1,0 +1,7 @@
+@CoreGearERP.Host_HostAddress = http://localhost:5014
+
+#POST http://localhost:5014/dev/token
+
+GET http://localhost:5014/me
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI3ZDcwYmI5MC0zZjI4LTQ5YjktYmM3Ny03NzZiZWVmNjU1NDkiLCJlbWFpbCI6ImRldkBjb3JlZ2Vhci5sb2NhbCIsInRlbmFudF9pZCI6IjM3ZjM0ZmVmLTQ3MTYtNDA0Mi1hZjBjLTJkNjM1Y2I4NDAwNyIsImV4cCI6MTc3OTU4NTQ4OCwiaXNzIjoiY29yZWdlYXItYXBpIiwiYXVkIjoiY29yZWdlYXItY2xpZW50In0.Nw4460X5m3Coe0q76ELGYuEm8eqcOGe1UO4GzqO05k4
+###
