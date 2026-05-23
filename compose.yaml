@@ -1,0 +1,7 @@
+﻿services:
+  coregearerp.host:
+    image: coregearerp.host
+    build:
+      context: .
+      dockerfile: CoreGearERP.Host/Dockerfile
+
