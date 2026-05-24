@@ -1,4 +1,3 @@
-using CoreGearERP.Common.Application.Interfaces;
 using CoreGearERP.Host.Extensions;
 using CoreGearERP.Inventory.Extensions;
 using Serilog;
@@ -13,8 +12,8 @@ try
 
     var builder = WebApplication.CreateBuilder(args);
 
-    builder.Host.UseSerilog((context, services, configuration) => configuration
-        .ReadFrom.Configuration(context.Configuration)
+    builder.Services.AddSerilog((services, configuration) => configuration
+        .ReadFrom.Configuration(builder.Configuration)
         .ReadFrom.Services(services)
         .WriteTo.Console());
 
@@ -25,20 +24,10 @@ try
     var app = builder.Build();
 
     app.UseHost();
-    app.UseSerilogRequestLogging();
 
     app.MapGet("/", () => "CoreGearERP");
     app.MapDevTokenEndpoint();
-
-    app.MapGet("/me", (ICurrentUser user, ICurrentTenant tenant) =>
-    {
-        return Results.Ok(new
-        {
-            userId   = user.UserId,
-            email    = user.Email,
-            tenantId = tenant.TenantId
-        });
-    }).RequireAuthorization();
+    app.MapInventoryEndpoints();
 
     app.Run();
 }

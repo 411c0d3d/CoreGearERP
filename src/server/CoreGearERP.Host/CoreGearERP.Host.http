@@ -1,7 +1,30 @@
 @CoreGearERP.Host_HostAddress = http://localhost:5014
 
-#POST http://localhost:5014/dev/token
+POST http://localhost:5014/dev/token
 
-GET http://localhost:5014/me
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI3ZDcwYmI5MC0zZjI4LTQ5YjktYmM3Ny03NzZiZWVmNjU1NDkiLCJlbWFpbCI6ImRldkBjb3JlZ2Vhci5sb2NhbCIsInRlbmFudF9pZCI6IjM3ZjM0ZmVmLTQ3MTYtNDA0Mi1hZjBjLTJkNjM1Y2I4NDAwNyIsImV4cCI6MTc3OTU4NTQ4OCwiaXNzIjoiY29yZWdlYXItYXBpIiwiYXVkIjoiY29yZWdlYXItY2xpZW50In0.Nw4460X5m3Coe0q76ELGYuEm8eqcOGe1UO4GzqO05k4
-###
+#GET http://localhost:5014/me
+#Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIyMjIyMjIyMi0yMjIyLTIyMjItMjIyMi0yMjIyMjIyMjIyMjIiLCJlbWFpbCI6ImRldkBjb3JlZ2Vhci5sb2NhbCIsInRlbmFudF9pZCI6IjExMTExMTExLTExMTEtMTExMS0xMTExLTExMTExMTExMTExMSIsImV4cCI6MTc3OTU5OTIyMCwiaXNzIjoiY29yZWdlYXItYXBpIiwiYXVkIjoiY29yZWdlYXItY2xpZW50In0.N20gNy2iJNJUYWal9MDP6XUJxO2ES3vCZGA2J6zaPnQ
+####
+
+POST http://localhost:5014/inventory/products
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIyMjIyMjIyMi0yMjIyLTIyMjItMjIyMi0yMjIyMjIyMjIyMjIiLCJlbWFpbCI6ImRldkBjb3JlZ2Vhci5sb2NhbCIsInRlbmFudF9pZCI6IjExMTExMTExLTExMTEtMTExMS0xMTExLTExMTExMTExMTExMSIsImV4cCI6MTc3OTU5OTIyMCwiaXNzIjoiY29yZWdlYXItYXBpIiwiYXVkIjoiY29yZWdlYXItY2xpZW50In0.N20gNy2iJNJUYWal9MDP6XUJxO2ES3vCZGA2J6zaPnQ
+Content-Type: application/json
+
+{
+  "code": "STEEL-002",
+  "name": "Steel Rod 20mm",
+  "unitCode": "KG",
+  "description": "Standard steel rod N2 used in production"
+}
+
+####
+GET http://localhost:5014/inventory/products
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIyMjIyMjIyMi0yMjIyLTIyMjItMjIyMi0yMjIyMjIyMjIyMjIiLCJlbWFpbCI6ImRldkBjb3JlZ2Vhci5sb2NhbCIsInRlbmFudF9pZCI6IjExMTExMTExLTExMTEtMTExMS0xMTExLTExMTExMTExMTExMSIsImV4cCI6MTc3OTU5OTIyMCwiaXNzIjoiY29yZWdlYXItYXBpIiwiYXVkIjoiY29yZWdlYXItY2xpZW50In0.N20gNy2iJNJUYWal9MDP6XUJxO2ES3vCZGA2J6zaPnQ
+Content-Type: application/json
+
+{
+"code": "STEEL-002",
+"name": "Steel Rod 20mm",
+"unitCode": "KG",
+"description": "Standard steel rod N2 used in production"
+}

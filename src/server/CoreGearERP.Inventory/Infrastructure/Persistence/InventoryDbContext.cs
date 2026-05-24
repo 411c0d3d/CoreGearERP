@@ -1,5 +1,6 @@
 using CoreGearERP.Common.Application.Interfaces;
 using CoreGearERP.Common.Domain.Entities;
+using CoreGearERP.Inventory.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace CoreGearERP.Inventory.Infrastructure.Persistence;
@@ -9,6 +10,11 @@ public class InventoryDbContext : DbContext
 {
     private readonly ICurrentTenant _currentTenant;
 
+    public DbSet<Product> Products => Set<Product>();
+
+    /// <summary>
+    /// Initializes a new instance of the InventoryDbContext class with the specified options and tenant context.
+    /// </summary>
     public InventoryDbContext(DbContextOptions<InventoryDbContext> options, ICurrentTenant currentTenant)
         : base(options)
     {
