@@ -1,6 +1,6 @@
 using FluentValidation;
 
-namespace CoreGearERP.Inventory.Application.Commands;
+namespace CoreGearERP.Inventory.Application.WarehouseEndpoint;
 
 /// <summary>
 /// Validates CreateWarehouseCommand before it reaches the handler.

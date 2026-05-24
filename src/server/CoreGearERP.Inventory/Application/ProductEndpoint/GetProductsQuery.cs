@@ -1,6 +1,6 @@
 using CoreGearERP.Common.Application.Interfaces;
 
-namespace CoreGearERP.Inventory.Application.Queries;
+namespace CoreGearERP.Inventory.Application.Queries.Product;
 
 /// <summary>
 /// Query to retrieve all active products for the current tenant.

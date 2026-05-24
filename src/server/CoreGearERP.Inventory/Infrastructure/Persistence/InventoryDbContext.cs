@@ -14,6 +14,7 @@ public class InventoryDbContext : DbContext
 
     public DbSet<Product> Products => Set<Product>();
     public DbSet<Warehouse> Warehouses => Set<Warehouse>();
+    public DbSet<StockItem> StockItems => Set<StockItem>();
 
     /// <summary>
     /// Initializes a new instance of the InventoryDbContext class with the specified options and tenant context.

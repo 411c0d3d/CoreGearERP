@@ -1,6 +1,6 @@
-namespace CoreGearERP.Inventory.Application.Commands;
-
 using FluentValidation;
+
+namespace CoreGearERP.Inventory.Application.ProductEndpoint;
 
 /// <summary>
 /// Validates CreateProductCommand before it reaches the handler.

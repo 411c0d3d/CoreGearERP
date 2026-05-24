@@ -2,7 +2,7 @@ using CoreGearERP.Common.Application.Interfaces;
 using CoreGearERP.Inventory.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
-namespace CoreGearERP.Inventory.Application.Queries;
+namespace CoreGearERP.Inventory.Application.WarehouseEndpoint;
 
 /// <summary>
 /// Handles GetWarehousesQuery. Returns all active warehouses for the current tenant.

@@ -1,8 +1,9 @@
 using CoreGearERP.Common.Application.Interfaces;
+using CoreGearERP.Inventory.Application.Queries.Product;
 using CoreGearERP.Inventory.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
-namespace CoreGearERP.Inventory.Application.Queries;
+namespace CoreGearERP.Inventory.Application.ProductEndpoint;
 
 /// <summary>
 /// Handles GetProductsQuery. Returns all non-deleted products for the current tenant.

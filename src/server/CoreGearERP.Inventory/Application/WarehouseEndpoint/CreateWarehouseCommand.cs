@@ -1,6 +1,6 @@
 using CoreGearERP.Common.Application.Interfaces;
 
-namespace CoreGearERP.Inventory.Application.Commands;
+namespace CoreGearERP.Inventory.Application.WarehouseEndpoint;
 
 /// <summary>
 /// Command to create a new warehouse.

@@ -4,7 +4,7 @@ using CoreGearERP.Inventory.Domain.Entities;
 using CoreGearERP.Inventory.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
-namespace CoreGearERP.Inventory.Application.Commands;
+namespace CoreGearERP.Inventory.Application.WarehouseEndpoint;
 
 /// <summary>
 /// Handles CreateWarehouseCommand. Validates uniqueness and persists the warehouse.

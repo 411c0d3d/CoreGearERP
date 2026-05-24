@@ -4,7 +4,9 @@ using CoreGearERP.Inventory.Domain.Enums;
 
 namespace CoreGearERP.Inventory.Domain.Entities;
 
-/// <summary>Represents a physical warehouse location that holds stock.</summary>
+/// <summary>
+/// Represents a physical warehouse location that holds stock.
+/// </summary>
 public class Warehouse : BaseEntity
 {
     /// <summary>Human-facing warehouse code. Unique per tenant.</summary>
@@ -16,7 +18,9 @@ public class Warehouse : BaseEntity
 
     private Warehouse() { }
 
-    /// <summary>Factory method. The only way to create a valid Warehouse.</summary>
+    /// <summary>
+    /// Factory method. The only way to create a valid Warehouse.
+    /// </summary>
     public static Warehouse Create(
         string code,
         string name,
@@ -47,7 +51,9 @@ public class Warehouse : BaseEntity
         return warehouse;
     }
 
-    /// <summary>Deactivates the warehouse. Inactive warehouses cannot receive stock.</summary>
+    /// <summary>
+    /// Deactivates the warehouse. Inactive warehouses cannot receive stock.
+    /// </summary>
     public void Deactivate(Guid modifiedBy)
     {
         if (Status == WarehouseStatus.Inactive.ToString())
@@ -59,7 +65,9 @@ public class Warehouse : BaseEntity
         SetModified(modifiedBy);
     }
 
-    /// <summary>Activates the warehouse.</summary>
+    /// <summary>
+    /// Activates the warehouse.
+    /// </summary>
     public void Activate(Guid modifiedBy)
     {
         if (Status == WarehouseStatus.Active.ToString())

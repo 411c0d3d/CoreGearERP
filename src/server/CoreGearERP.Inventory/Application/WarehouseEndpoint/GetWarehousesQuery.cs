@@ -1,6 +1,6 @@
 using CoreGearERP.Common.Application.Interfaces;
 
-namespace CoreGearERP.Inventory.Application.Queries;
+namespace CoreGearERP.Inventory.Application.WarehouseEndpoint;
 
 /// <summary>
 /// Query to retrieve all active warehouses for the current tenant.
