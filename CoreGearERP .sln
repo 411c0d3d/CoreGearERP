@@ -19,7 +19,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CoreGearERP.Sales", "src\se
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CoreGearERP.Finance", "src\server\CoreGearERP.Finance\CoreGearERP.Finance.csproj", "{22901CB4-F363-40E6-850C-487AD5E76FC2}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CoreGearERP.Inventory.Tests", "src\server\CoreGearERP.Inventory.Tests\CoreGearERP.Inventory.Tests.csproj", "{C6B572C6-0085-4AD0-9C5E-83F71A997926}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CoreGearERP.Tests", "src\server\CoreGearERP.Tests\CoreGearERP.Tests.csproj", "{C6B572C6-0085-4AD0-9C5E-83F71A997926}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

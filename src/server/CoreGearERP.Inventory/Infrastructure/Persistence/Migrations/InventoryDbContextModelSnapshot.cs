@@ -107,6 +107,85 @@ namespace CoreGearERP.Inventory.Infrastructure.Persistence.Migrations
 
                     b.ToTable("products", "inventory");
                 });
+
+            modelBuilder.Entity("CoreGearERP.Inventory.Domain.Entities.Warehouse", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime?>("CancelledAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("cancelled_at");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("code");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("completed_at");
+
+                    b.Property<DateTime?>("ConfirmedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("confirmed_at");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_deleted");
+
+                    b.Property<string>("Location")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("location");
+
+                    b.Property<DateTime>("ModifiedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("modified_at");
+
+                    b.Property<Guid>("ModifiedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("modified_by");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("status");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_warehouses_tenant_id");
+
+                    b.HasIndex("TenantId", "Code")
+                        .IsUnique()
+                        .HasDatabaseName("ix_warehouses_tenant_code");
+
+                    b.ToTable("warehouses", "inventory");
+                });
 #pragma warning restore 612, 618
         }
     }

@@ -1,9 +1,44 @@
-# CoreGear
+# CoreGearERP
 
 > A manufacturing ERP platform built on .NET 10 and Angular. It covers the core operational chain of a manufacturing business -- inventory, procurement, production, sales, and finance -- wired together with gRPC contracts and event-driven messaging via RabbitMQ. Built to learn. Structured to scale.
 
-Stack: .NET 10 | Angular | PrimeNG | RabbitMQ | gRPC | PostgreSQL | Redis  
-Approach: Monolith first, extract one service at the end
+**Stack:** .NET 10 | Angular | PrimeNG | RabbitMQ | gRPC | PostgreSQL | Redis  
+**Architecture:** Modular Monolith | Pragmatic DDD | Clean Architecture per module | CQRS  
+**Approach:** Monolith first, extract one service at the end
+
+---
+
+## Repository Structure
+
+```
+CoreGearERP/
+  CoreGearERP.sln
+  README.md
+  appsettings.example.json
+  .gitignore
+  .dockerignore
+  src/
+    server/
+      CoreGearERP.Host/           -- ASP.NET Core entry point, composition root
+      CoreGearERP.Common/         -- Shared interfaces, value objects, base entities
+      CoreGearERP.Inventory/      -- Inventory bounded context
+      CoreGearERP.Procurement/    -- Procurement bounded context
+      CoreGearERP.Production/     -- Production bounded context
+      CoreGearERP.Sales/          -- Sales bounded context
+      CoreGearERP.Finance/        -- Finance bounded context
+    client/
+      coregear-ui/                -- Angular SPA, scaffolded at M6
+  tests/
+    CoreGearERP.Inventory.Tests/
+    CoreGearERP.Procurement.Tests/
+    CoreGearERP.Production.Tests/
+    CoreGearERP.Sales.Tests/
+    CoreGearERP.Finance.Tests/
+  docs/
+    ADR.md                        -- Architecture Decision Records
+    domain-model.md               -- Entity relationships, flows, contracts
+    db-migration-steps.md         -- EF Core migration reference guide
+```
 
 ---
 
@@ -19,22 +54,77 @@ Approach: Monolith first, extract one service at the end
 
 ---
 
+## Getting Started
+
+### Prerequisites
+
+- .NET 10 SDK
+- Docker Desktop
+- Node.js 20+ (for Angular at M6)
+- Rider or Visual Studio
+
+### Local Infrastructure
+
+Start PostgreSQL and Redis via Docker:
+
+```bash
+docker run -d --name coregear-postgres -e POSTGRES_USER=coregear -e POSTGRES_PASSWORD=coregear123 -e POSTGRES_DB=coregearerp -p 5432:5432 postgres:16-alpine
+```
+
+### Configuration
+
+Copy `appsettings.example.json` and set up user secrets:
+
+```bash
+cd src/server/CoreGearERP.Host
+dotnet user-secrets init
+dotnet user-secrets set "Auth:SecretKey" "<your-secret-key>"
+dotnet user-secrets set "Auth:Issuer" "coregear-api"
+dotnet user-secrets set "Auth:Audience" "coregear-client"
+dotnet user-secrets set "ConnectionStrings:Inventory" "Host=localhost;Port=5432;Database=coregearerp;Username=coregear;Password=coregear123;Search Path=inventory"
+```
+
+See `appsettings.example.json` for all required keys.
+
+### Run Migrations
+
+See `docs/db-migration-steps.md` for the full migration guide.
+
+### Run the API
+
+```bash
+cd src/server/CoreGearERP.Host
+dotnet run
+```
+
+API runs on `http://localhost:5014`.
+
+### Get a Dev Token
+
+```
+POST http://localhost:5014/dev/token
+```
+
+Returns a JWT for local development. Use it as `Authorization: Bearer <token>` on all protected endpoints.
+
+---
+
 ## Milestones
 
-### M1 - Foundation
-- Solution structure, one class library per module
-- PostgreSQL + EF Core, one DbContext per module, separate schemas
-- JWT auth with tenant claim
-- EF Core global query filters for tenancy and soft delete
-- FluentValidation pipeline behavior
-- Serilog
+### M1 - Foundation and Infrastructure: Solution Structure, Authentication, Database, and Request Pipeline
+- Modular solution structure with one class library per bounded context
+- PostgreSQL with EF Core, one DbContext per module with separate schemas
+- JWT authentication with tenant claim and global tenant scoping
+- Custom CQRS dispatcher with pipeline behaviors (logging, validation)
+- Result pattern -- exceptions never propagate through the middleware stack
+- Serilog structured logging
 
 **Done when:** register tenant, log in, hit a protected tenant-scoped endpoint
 
 ---
 
-### M2 - Inventory and Procurement
-- Product, StockItem, Warehouse entities
+### M2 - Core Domain: Inventory and Procurement Operational Chain
+- Product, Warehouse, StockItem entities with rich domain behaviour
 - StockMovement as immutable append-only records
 - PurchaseOrder with line items and status progression
 - Goods receipt flow: PO confirmed -> goods received -> stock updated
@@ -48,8 +138,7 @@ Approach: Monolith first, extract one service at the end
 - ProductionOrder with BillOfMaterials
 - Component availability check before confirming production order
 - SalesOrder with line items and stock reservation on creation
-- Basic state machines for order progression
-- CQRS: commands mutate, queries read, no shared handlers
+- State machines for order progression
 
 **Done when:** create sales order, reserve stock, confirm production order
 
@@ -57,9 +146,6 @@ Approach: Monolith first, extract one service at the end
 
 ### M4 - gRPC Contracts
 - Define .proto contracts for cross-module queries
-  - Inventory.GetStockLevel
-  - Inventory.ReserveStock
-  - Production.GetOrderStatus
 - Production calls Inventory via gRPC to check components
 - Sales calls Inventory via gRPC to reserve stock
 - gRPC client factory in DI
@@ -69,33 +155,22 @@ Approach: Monolith first, extract one service at the end
 ---
 
 ### M5 - Event Driven Messaging and Caching
-- RabbitMQ via Docker
-- MassTransit on top for consumer registration, retries, dead letters
-- Outbox table, background worker publishes to exchange
-- Domain events:
-  - StockLevelLow -> Procurement notification
-  - ProductionOrderCompleted -> Finance cost entry
-  - SalesOrderShipped -> customer notification placeholder
-- Finance consumes ProductionOrderCompleted and posts cost entries
-- IMemoryCache for reference data (products, units of measure, currencies)
-- Read model projection for stock levels updated via RabbitMQ events, not cached directly
-- Redis via Docker for distributed cache (user permissions, session data)
+- RabbitMQ via Docker with MassTransit
+- Outbox pattern for guaranteed at-least-once delivery
+- Domain events with fan-out to multiple consumers
+- IMemoryCache for reference data
+- Read model projections for stock levels
+- Redis for distributed cache
 
-**Done when:** complete production order, Finance receives event and posts cost entries automatically, stock dashboard reads from projection not live query
+**Done when:** complete production order, Finance receives event and posts cost entries automatically
 
 ---
 
 ### M6 - Angular Frontend
-- Angular standalone components
-- PrimeNG for all UI components (tables, forms, dialogs, menus)
-- PrimeFlex for layout and spacing
+- Angular standalone components with PrimeNG
 - JWT auth flow with HTTP interceptor
-- Inventory dashboard with stock levels using PrimeNG Table
-- Production order creation form using PrimeNG reactive form components
-- ngx-echarts for stock trend and production output charts
-- SignalR client for real-time stock updates
-  - RabbitMQ consumer pushes to SignalR hub
-  - Angular reflects changes without refresh
+- Inventory and production dashboards
+- SignalR for real-time stock updates
 
 **Done when:** full flow visible in browser, stock updates in real time
 
@@ -103,52 +178,32 @@ Approach: Monolith first, extract one service at the end
 
 ### M7 - Service Extraction
 - Extract Inventory module to standalone .NET service
-- All communication now over gRPC and RabbitMQ only
-- Docker Compose with both services, RabbitMQ, PostgreSQL, Redis
-- No shared DbContext, no shared memory
+- All communication over gRPC and RabbitMQ only
+- Docker Compose orchestration
 
 **Done when:** Inventory runs as independent deployable, other modules talk to it only through contracts
 
 ---
 
-## ADRs
+## Architecture
 
-### ADR-001: Monolith First
-**Decision:** One deployable host, modules as class libraries, extract Inventory at M7  
-**Why:** Bounded contexts are interrelated. Forcing services early creates distributed transaction problems before you understand the domain.  
-**Tradeoff:** Single deployment unit. A fault in one module can affect others.
+Each module follows Clean Architecture with Pragmatic DDD:
 
----
+```
+CoreGearERP.{Module}/
+  Domain/
+    Entities/         -- rich domain entities with behaviour
+    Enums/            -- module-specific status values
+  Application/
+    Commands/         -- write side, one file per use case
+    Queries/          -- read side, one file per use case
+    Contracts/        -- interfaces exposed to other modules
+  Infrastructure/
+    Persistence/
+      Configurations/ -- EF Core entity type configurations
+      Migrations/     -- EF Core generated migrations
+    gRPC/             -- gRPC service implementations (Inventory, Production)
+```
 
-### ADR-002: gRPC for Inter-Module Sync Communication
-**Decision:** All synchronous cross-module calls use gRPC with Protobuf contracts. No direct DbContext sharing.  
-**Why:** Typed contracts catch breaking changes at compile time. REST does not. When Inventory is extracted at M7, the contracts stay the same.  
-**Tradeoff:** More setup than REST. Not browser-friendly, internal only.
-
----
-
-### ADR-003: RabbitMQ + MassTransit + Outbox
-**Decision:** RabbitMQ self-hosted via Docker. MassTransit as .NET abstraction. Outbox pattern for guaranteed delivery.  
-**Why:** Self-hosted means you understand every part. Outbox ensures events survive broker downtime. MassTransit handles retry and dead letter routing without boilerplate.  
-**Tradeoff:** Consumers must be idempotent. At-least-once delivery means duplicates are possible.
-
----
-
-### ADR-004: PostgreSQL
-**Decision:** PostgreSQL for all modules, separate schema per module. Develop locally via Docker, deploy to Azure Database for PostgreSQL.  
-**Why:** Open source, strong ACID guarantees for financial data, JSONB for custom fields later, widely used in German market.  
-**Tradeoff:** No SQL Server specific EF Core features.
-
----
-
-### ADR-005: Angular + PrimeNG
-**Decision:** Angular standalone components, PrimeNG 21 for UI components, PrimeFlex for layout, ngx-echarts for charts, HttpClient with interceptors, SignalR client.  
-**Why:** Angular is dominant in German enterprise hiring, especially ERP and finance. PrimeNG covers 80+ components out of the box including the data tables, forms, and dialogs an ERP needs. Used in production by SAP, Mercedes, and Lufthansa. Fully free with no license wall. ngx-echarts handles time series and operational charts cleanly without bloat.  
-**Tradeoff:** PrimeNG major versions track Angular major versions closely. Pin them together and do not let them drift.
-
----
-
-### ADR-006: Caching Strategy
-**Decision:** Three-layer approach. IMemoryCache for reference data. Read model projections for stock levels. Redis for distributed cache (permissions, session).  
-**Why:** Stock levels must not be cached directly -- a stale value causes oversell. The read model is kept current by RabbitMQ events so it is fast without the staleness risk. IMemoryCache is enough for data that rarely changes. Redis only where cache must survive a process restart or be shared across instances.  
-**Tradeoff:** Read model is eventually consistent. There is a brief window between a stock movement and the projection updating. Acceptable for dashboards, not acceptable for the actual reservation check which always hits the write model via gRPC.
+See `docs/ADR.md` for all architectural decisions and rationale.  
+See `docs/Domain model.md` for entity relationships, cross-module flows, and event contracts.

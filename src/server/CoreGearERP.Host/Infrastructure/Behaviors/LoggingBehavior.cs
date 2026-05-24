@@ -4,7 +4,9 @@ using System.Diagnostics;
 
 namespace CoreGearERP.Host.Infrastructure.Behaviors;
 
-/// <summary>Logs every command and query with execution time. Warns on slow handlers.</summary>
+/// <summary>
+/// Logs every command and query with execution time. Warns on slow handlers.
+/// </summary>
 public class LoggingBehavior<TRequest, TResult> : IPipelineBehavior<TRequest, TResult>
 {
     private readonly ILogger<LoggingBehavior<TRequest, TResult>> _logger;

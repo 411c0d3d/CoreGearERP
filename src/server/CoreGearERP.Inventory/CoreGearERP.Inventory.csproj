@@ -11,16 +11,11 @@
     </ItemGroup>
 
     <ItemGroup>
-        <Folder Include="Application\Commands\"/>
         <Folder Include="Application\Contracts\"/>
-        <Folder Include="Application\Queries\"/>
-        <Folder Include="Domain\Entities\"/>
-        <Folder Include="Domain\Enums\"/>
         <Folder Include="Domain\Exceptions\"/>
         <Folder Include="Domain\ValueObjects\"/>
         <Folder Include="Extensions\"/>
         <Folder Include="Infrastructure\gRPC\"/>
-        <Folder Include="Infrastructure\Persistence\Configurations\"/>
         <Folder Include="Infrastructure\Persistence\Migrations\"/>
     </ItemGroup>
 

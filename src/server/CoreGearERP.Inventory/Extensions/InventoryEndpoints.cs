@@ -42,6 +42,28 @@ public static class InventoryEndpoints
             return Results.Ok(result.Value);
         });
 
+        group.MapPost("/warehouses", async (CreateWarehouseCommand command, IDispatcher dispatcher) =>
+        {
+            var result = await dispatcher.SendCommand<Guid>(command);
+            if (!result.IsSuccess)
+            {
+                return Results.BadRequest(new { error = result.Error });
+            }
+
+            return Results.Created($"/inventory/warehouses/{result.Value}", new { id = result.Value });
+        });
+
+        group.MapGet("/warehouses", async (IDispatcher dispatcher) =>
+        {
+            var result = await dispatcher.SendQuery<IReadOnlyList<WarehouseDto>>(new GetWarehousesQuery());
+            if (!result.IsSuccess)
+            {
+                return Results.BadRequest(new { error = result.Error });
+            }
+
+            return Results.Ok(result.Value);
+        });
+
         return app;
     }
 }

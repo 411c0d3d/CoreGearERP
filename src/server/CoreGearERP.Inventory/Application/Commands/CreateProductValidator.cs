@@ -7,6 +7,9 @@ using FluentValidation;
 /// </summary>
 public class CreateProductValidator : AbstractValidator<CreateProductCommand>
 {
+    /// <summary>
+    /// Defines validation rules for creating a product.
+    /// </summary>
     public CreateProductValidator()
     {
         RuleFor(x => x.Code)

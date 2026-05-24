@@ -1,13 +1,20 @@
-@CoreGearERP.Host_HostAddress = http://localhost:5014
+# @no-log
 
-POST http://localhost:5014/dev/token
+@HostAddress = http://localhost:5014
+@BearerToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIyMjIyMjIyMi0yMjIyLTIyMjItMjIyMi0yMjIyMjIyMjIyMjIiLCJlbWFpbCI6ImRldkBjb3JlZ2Vhci5sb2NhbCIsInRlbmFudF9pZCI6IjExMTExMTExLTExMTEtMTExMS0xMTExLTExMTExMTExMTExMSIsImV4cCI6MTc4MjIxOTA2MiwiaXNzIjoiY29yZWdlYXItYXBpIiwiYXVkIjoiY29yZWdlYXItY2xpZW50In0._QAy1UbI7lBi2NVG3DvFenB-PaMjNiEwmklzjSJyVrw
 
-#GET http://localhost:5014/me
-#Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIyMjIyMjIyMi0yMjIyLTIyMjItMjIyMi0yMjIyMjIyMjIyMjIiLCJlbWFpbCI6ImRldkBjb3JlZ2Vhci5sb2NhbCIsInRlbmFudF9pZCI6IjExMTExMTExLTExMTEtMTExMS0xMTExLTExMTExMTExMTExMSIsImV4cCI6MTc3OTU5OTIyMCwiaXNzIjoiY29yZWdlYXItYXBpIiwiYXVkIjoiY29yZWdlYXItY2xpZW50In0.N20gNy2iJNJUYWal9MDP6XUJxO2ES3vCZGA2J6zaPnQ
+POST {{HostAddress}}/dev/token
+
 ####
 
-POST http://localhost:5014/inventory/products
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIyMjIyMjIyMi0yMjIyLTIyMjItMjIyMi0yMjIyMjIyMjIyMjIiLCJlbWFpbCI6ImRldkBjb3JlZ2Vhci5sb2NhbCIsInRlbmFudF9pZCI6IjExMTExMTExLTExMTEtMTExMS0xMTExLTExMTExMTExMTExMSIsImV4cCI6MTc3OTU5OTIyMCwiaXNzIjoiY29yZWdlYXItYXBpIiwiYXVkIjoiY29yZWdlYXItY2xpZW50In0.N20gNy2iJNJUYWal9MDP6XUJxO2ES3vCZGA2J6zaPnQ
+GET {{HostAddress}}/me
+Authorization: Bearer {{BearerToken}}
+Content-Type: application/json
+
+####
+
+POST {{HostAddress}}/inventory/products
+Authorization: Bearer {{BearerToken}}
 Content-Type: application/json
 
 {
@@ -18,13 +25,25 @@ Content-Type: application/json
 }
 
 ####
-GET http://localhost:5014/inventory/products
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIyMjIyMjIyMi0yMjIyLTIyMjItMjIyMi0yMjIyMjIyMjIyMjIiLCJlbWFpbCI6ImRldkBjb3JlZ2Vhci5sb2NhbCIsInRlbmFudF9pZCI6IjExMTExMTExLTExMTEtMTExMS0xMTExLTExMTExMTExMTExMSIsImV4cCI6MTc3OTU5OTIyMCwiaXNzIjoiY29yZWdlYXItYXBpIiwiYXVkIjoiY29yZWdlYXItY2xpZW50In0.N20gNy2iJNJUYWal9MDP6XUJxO2ES3vCZGA2J6zaPnQ
+
+GET {{HostAddress}}/inventory/products
+Authorization: Bearer {{BearerToken}}
+Content-Type: application/json
+
+####
+
+POST {{HostAddress}}/inventory/warehouses
+Authorization: Bearer {{BearerToken}}
 Content-Type: application/json
 
 {
-"code": "STEEL-002",
-"name": "Steel Rod 20mm",
-"unitCode": "KG",
-"description": "Standard steel rod N2 used in production"
+  "code": "WH-MAIN",
+  "name": "Main Warehouse",
+  "location": "Berlin, Germany"
 }
+
+####
+
+GET {{HostAddress}}/inventory/warehouses
+Authorization: Bearer {{BearerToken}}
+Content-Type: application/json

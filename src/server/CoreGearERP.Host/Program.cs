@@ -28,8 +28,15 @@ try
     app.MapGet("/", () => "CoreGearERP");
     app.MapDevTokenEndpoint();
     app.MapInventoryEndpoints();
-
-    app.Run();
+    
+    var lifetime = app.Services.GetRequiredService<IHostApplicationLifetime>();
+    lifetime.ApplicationStarted.Register(() =>
+    {
+        var urls = string.Join(", ", app.Urls);
+        Log.Information("CoreGearERP running on {Environment} | Listening on {Urls}",
+            app.Environment.EnvironmentName,
+            urls);
+    });    app.Run();
 }
 catch (Exception ex)
 {

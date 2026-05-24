@@ -84,6 +84,7 @@ yarn.lock
 .idea/
 *.sln.iml
 .idea_modules/
+.idea/httpRequests/
 
 # ─── Visual Studio ────────────────────────────────────────────────────────────
 .vs/
