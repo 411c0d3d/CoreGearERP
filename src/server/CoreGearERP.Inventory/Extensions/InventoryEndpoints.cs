@@ -2,6 +2,7 @@ using CoreGearERP.Common.Application.Interfaces;
 using CoreGearERP.Inventory.Application.ProductEndpoint;
 using CoreGearERP.Inventory.Application.Queries.Product;
 using CoreGearERP.Inventory.Application.StockItemEndpoint;
+using CoreGearERP.Inventory.Application.StockMovementEndpoint;
 using CoreGearERP.Inventory.Application.WarehouseEndpoint;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -69,7 +70,11 @@ public static class InventoryEndpoints
         group.MapPost("/stock-items", async (CreateStockItemCommand command, IDispatcher dispatcher) =>
         {
             var result = await dispatcher.SendCommand<Guid>(command);
-            if (!result.IsSuccess) { return Results.BadRequest(new { error = result.Error }); }
+            if (!result.IsSuccess)
+            {
+                return Results.BadRequest(new { error = result.Error });
+            }
+
             return Results.Created($"/inventory/stock-items/{result.Value}", new { id = result.Value });
         });
 
@@ -77,10 +82,28 @@ public static class InventoryEndpoints
         {
             var result = await dispatcher.SendQuery<IReadOnlyList<StockItemDto>>(
                 new GetStockItemsQuery(warehouseId));
-            if (!result.IsSuccess) { return Results.BadRequest(new { error = result.Error }); }
+            if (!result.IsSuccess)
+            {
+                return Results.BadRequest(new { error = result.Error });
+            }
+
             return Results.Ok(result.Value);
         });
-        
+
+        group.MapGet("/stock-items/{stockItemId}/movements", async (
+            Guid stockItemId,
+            IDispatcher dispatcher) =>
+        {
+            var result = await dispatcher.SendQuery<IReadOnlyList<StockMovementDto>>(
+                new GetStockMovementsQuery(stockItemId));
+            if (!result.IsSuccess)
+            {
+                return Results.BadRequest(new { error = result.Error });
+            }
+
+            return Results.Ok(result.Value);
+        });
+
         return app;
     }
 }

@@ -48,7 +48,7 @@ GET {{HostAddress}}/inventory/warehouses
 Authorization: Bearer {{BearerToken}}
 Content-Type: application/json
 
-###
+####
 
 POST {{HostAddress}}/inventory/stock-items
 Authorization: Bearer {{BearerToken}}
@@ -59,6 +59,12 @@ Content-Type: application/json
   "warehouseId": "4ce09a0e-385a-4ea5-9f3c-e50bac7e6cc8",
   "unitCode": "KG"
 }
+
+####
+
+GET {{HostAddress}}/inventory/stock-items
+Authorization: Bearer {{BearerToken}}
+Content-Type: application/json
 
 ###
 
