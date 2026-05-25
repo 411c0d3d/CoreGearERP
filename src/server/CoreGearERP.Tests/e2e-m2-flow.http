@@ -8,6 +8,7 @@ DELETE {{HostAddress}}/test/reset
 Authorization: Bearer {{BearerToken}}
 
 > {%
+    client.log(JSON.stringify(response.body));
     client.test("Test data cleared", function() {
         client.assert(response.status === 200, "Expected 200");
     });
@@ -18,16 +19,25 @@ Authorization: Bearer {{BearerToken}}
 @HostAddress = http://localhost:5014
 @BearerToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIyMjIyMjIyMi0yMjIyLTIyMjItMjIyMi0yMjIyMjIyMjIyMjIiLCJlbWFpbCI6ImRldkBjb3JlZ2Vhci5sb2NhbCIsInRlbmFudF9pZCI6IjExMTExMTExLTExMTEtMTExMS0xMTExLTExMTExMTExMTExMSIsImV4cCI6MTc4MjIxOTA2MiwiaXNzIjoiY29yZWdlYXItYXBpIiwiYXVkIjoiY29yZWdlYXItY2xpZW50In0._QAy1UbI7lBi2NVG3DvFenB-PaMjNiEwmklzjSJyVrw
 
+
+####
+# @no-log
+####
+
 ### Step 1 -- Verify auth
 GET {{HostAddress}}/me
 Authorization: Bearer {{BearerToken}}
 
 > {%
+    client.log(JSON.stringify(response.body));
     client.test("Auth resolves user and tenant", function() {
         client.assert(response.status === 200, "Expected 200");
     });
 %}
 
+
+####
+# @no-log
 ####
 
 ### Step 2 -- Create product
@@ -43,12 +53,15 @@ Content-Type: application/json
 }
 
 > {%
+    client.log(JSON.stringify(response.body));
     client.test("Product created", function() {
         client.assert(response.status === 201, "Expected 201");
         client.global.set("productId", response.body.id);
     });
 %}
 
+####
+# @no-log
 ####
 
 ### Step 3 -- Create warehouse
@@ -63,12 +76,15 @@ Content-Type: application/json
 }
 
 > {%
+    client.log(JSON.stringify(response.body));
     client.test("Warehouse created", function() {
         client.assert(response.status === 201, "Expected 201");
         client.global.set("warehouseId", response.body.id);
     });
 %}
 
+####
+# @no-log
 ####
 
 ### Step 4 -- Create stock item
@@ -83,6 +99,7 @@ Content-Type: application/json
 }
 
 > {%
+    client.log(JSON.stringify(response.body));
     client.test("StockItem created", function() {
         client.assert(response.status === 201, "Expected 201");
         client.global.set("stockItemId", response.body.id);
@@ -90,18 +107,23 @@ Content-Type: application/json
 %}
 
 ####
+# @no-log
+####
 
 ### Step 5 -- Verify stock items exist
 GET {{HostAddress}}/inventory/stock-items
 Authorization: Bearer {{BearerToken}}
 
 > {%
+    client.log(JSON.stringify(response.body));
     client.test("Stock items returned", function() {
         client.assert(response.status === 200, "Expected 200");
         client.assert(response.body.length > 0, "Expected at least one stock item");
     });
 %}
 
+####
+# @no-log
 ####
 
 ### Step 6 -- Create supplier
@@ -118,12 +140,15 @@ Content-Type: application/json
 }
 
 > {%
+    client.log(JSON.stringify(response.body));
     client.test("Supplier created", function() {
         client.assert(response.status === 201, "Expected 201");
         client.global.set("supplierId", response.body.id);
     });
 %}
 
+####
+# @no-log
 ####
 
 ### Step 7 -- Create purchase order
@@ -148,12 +173,15 @@ Content-Type: application/json
 }
 
 > {%
+    client.log(JSON.stringify(response.body));
     client.test("Purchase order created in Draft", function() {
         client.assert(response.status === 201, "Expected 201");
         client.global.set("orderId", response.body.id);
     });
 %}
 
+####
+# @no-log
 ####
 
 ### Step 8 -- Confirm purchase order
@@ -162,11 +190,14 @@ Authorization: Bearer {{BearerToken}}
 Content-Type: application/json
 
 > {%
+    client.log(JSON.stringify(response.body));
     client.test("Purchase order confirmed", function() {
         client.assert(response.status === 200, "Expected 200");
     });
 %}
 
+####
+# @no-log
 ####
 
 ### Step 9 -- Get order with line ids
@@ -174,6 +205,7 @@ GET {{HostAddress}}/procurement/orders/{{orderId}}
 Authorization: Bearer {{BearerToken}}
 
 > {%
+    client.log(JSON.stringify(response.body));
     client.test("Order status is Confirmed", function() {
         client.assert(response.status === 200, "Expected 200");
         client.assert(response.body.status === "Confirmed", "Expected Confirmed status");
@@ -182,6 +214,8 @@ Authorization: Bearer {{BearerToken}}
     });
 %}
 
+####
+# @no-log
 ####
 
 ### Step 10 -- Receive partial goods (50 of 100)
@@ -196,11 +230,14 @@ Content-Type: application/json
 }
 
 > {%
+    client.log(JSON.stringify(response.body));
     client.test("Partial goods receipt accepted", function() {
         client.assert(response.status === 200, "Expected 200");
     });
 %}
 
+####
+# @no-log
 ####
 
 ### Step 11 -- Verify PO is PartiallyReceived
@@ -208,6 +245,7 @@ GET {{HostAddress}}/procurement/orders/{{orderId}}
 Authorization: Bearer {{BearerToken}}
 
 > {%
+    client.log(JSON.stringify(response.body));
     client.test("Order status is PartiallyReceived", function() {
         client.assert(response.status === 200, "Expected 200");
         client.assert(response.body.status === "PartiallyReceived", "Expected PartiallyReceived");
@@ -216,12 +254,15 @@ Authorization: Bearer {{BearerToken}}
 %}
 
 ####
+# @no-log
+####
 
 ### Step 12 -- Verify first stock movement created
 GET {{HostAddress}}/inventory/stock-items/{{stockItemId}}/movements
 Authorization: Bearer {{BearerToken}}
 
 > {%
+    client.log(JSON.stringify(response.body));
     client.test("Stock movement created for partial receipt", function() {
         client.assert(response.status === 200, "Expected 200");
         client.assert(response.body.length === 1, "Expected 1 movement");
@@ -230,6 +271,8 @@ Authorization: Bearer {{BearerToken}}
     });
 %}
 
+####
+# @no-log
 ####
 
 ### Step 13 -- Receive remaining goods (50 of 100)
@@ -244,11 +287,14 @@ Content-Type: application/json
 }
 
 > {%
+    client.log(JSON.stringify(response.body));
     client.test("Final goods receipt accepted", function() {
         client.assert(response.status === 200, "Expected 200");
     });
 %}
 
+####
+# @no-log
 ####
 
 ### Step 14 -- Verify PO is fully Received
@@ -256,6 +302,7 @@ GET {{HostAddress}}/procurement/orders/{{orderId}}
 Authorization: Bearer {{BearerToken}}
 
 > {%
+    client.log(JSON.stringify(response.body));
     client.test("Order status is Received", function() {
         client.assert(response.status === 200, "Expected 200");
         client.assert(response.body.status === "Received", "Expected Received");
@@ -265,12 +312,15 @@ Authorization: Bearer {{BearerToken}}
 %}
 
 ####
+# @no-log
+####
 
 ### Step 15 -- Verify final stock level
 GET {{HostAddress}}/inventory/stock-items
 Authorization: Bearer {{BearerToken}}
 
 > {%
+    client.log(JSON.stringify(response.body));
     client.test("Stock items returned with updated quantity", function() {
         client.assert(response.status === 200, "Expected 200");
         client.assert(response.body.length > 0, "Expected at least one stock item");
@@ -278,12 +328,15 @@ Authorization: Bearer {{BearerToken}}
 %}
 
 ####
+# @no-log
+####
 
 ### Step 16 -- Verify two stock movements exist
 GET {{HostAddress}}/inventory/stock-items/{{stockItemId}}/movements
 Authorization: Bearer {{BearerToken}}
 
 > {%
+    client.log(JSON.stringify(response.body));
     client.test("Two stock movements created", function() {
         client.assert(response.status === 200, "Expected 200");
         client.assert(response.body.length === 2, "Expected 2 movements");
