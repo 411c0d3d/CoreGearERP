@@ -17,8 +17,8 @@ public class ExceptionMiddleware
     /// <summary>
     /// Initializes a new instance of the <see cref="ExceptionMiddleware"/> class.
     /// </summary>
-    /// <param name="next"></param>
-    /// <param name="logger"></param>
+    /// <param name="next">The Next Request Delegate.</param>
+    /// <param name="logger">The logger to log exceptions.</param>
     public ExceptionMiddleware(RequestDelegate next, ILogger<ExceptionMiddleware> logger)
     {
         _next = next;
@@ -28,7 +28,7 @@ public class ExceptionMiddleware
     /// <summary>
     /// Invoke the middleware. Catches exceptions and maps them to HTTP responses.
     /// </summary>
-    /// <param name="context"></param>
+    /// <param name="context">The HttpContext for the current request.</param>
     public async Task InvokeAsync(HttpContext context)
     {
         try
@@ -37,13 +37,15 @@ public class ExceptionMiddleware
         }
         catch (DomainException ex)
         {
-            _logger.LogWarning(ex, "Domain rule violation: {Message}", ex.Message);
+            // Expected business rule violation -- log as warning without stack trace.
+            _logger.LogWarning("Domain rule violation: {Message}", ex.Message);
             context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
             await context.Response.WriteAsJsonAsync(new { error = ex.Message });
         }
         catch (NotFoundException ex)
         {
-            _logger.LogWarning(ex, "Entity not found: {Message}", ex.Message);
+            // Expected -- log as warning without stack trace.
+            _logger.LogWarning("Not found: {Message}", ex.Message);
             context.Response.StatusCode = (int)HttpStatusCode.NotFound;
             await context.Response.WriteAsJsonAsync(new { error = ex.Message });
         }

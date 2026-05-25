@@ -1,0 +1,51 @@
+using CoreGearERP.Procurement.Domain.Entities;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+
+namespace CoreGearERP.Procurement.Infrastructure.Persistence.Configurations;
+
+/// <summary>
+/// EF Core mapping configuration for PurchaseOrder.
+/// </summary>
+public class PurchaseOrderConfiguration : IEntityTypeConfiguration<PurchaseOrder>
+{
+    public void Configure(EntityTypeBuilder<PurchaseOrder> builder)
+    {
+        builder.ToTable("purchase_orders");
+
+        builder.HasKey(o => o.Id);
+
+        builder.Property(o => o.Id).HasColumnName("id");
+        builder.Property(o => o.TenantId).HasColumnName("tenant_id").IsRequired();
+        builder.Property(o => o.OrderNumber).HasColumnName("order_number").HasMaxLength(50).IsRequired();
+        builder.Property(o => o.SupplierId).HasColumnName("supplier_id").IsRequired();
+        builder.Property(o => o.SupplierName).HasColumnName("supplier_name").HasMaxLength(200).IsRequired();
+        builder.Property(o => o.Notes).HasColumnName("notes").HasMaxLength(1000);
+        builder.Property(o => o.Status).HasColumnName("status").HasMaxLength(50).IsRequired();
+        builder.Property(o => o.IsDeleted).HasColumnName("is_deleted").IsRequired();
+        builder.Property(o => o.CreatedAt).HasColumnName("created_at").IsRequired();
+        builder.Property(o => o.CreatedBy).HasColumnName("created_by").IsRequired();
+        builder.Property(o => o.ModifiedAt).HasColumnName("modified_at").IsRequired();
+        builder.Property(o => o.ModifiedBy).HasColumnName("modified_by").IsRequired();
+        builder.Property(o => o.ConfirmedAt).HasColumnName("confirmed_at");
+        builder.Property(o => o.CompletedAt).HasColumnName("completed_at");
+        builder.Property(o => o.CancelledAt).HasColumnName("cancelled_at");
+
+        builder.HasMany(o => o.Lines)
+            .WithOne()
+            .HasForeignKey(l => l.PurchaseOrderId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasIndex(o => new { o.TenantId, o.OrderNumber })
+            .IsUnique()
+            .HasDatabaseName("ix_purchase_orders_tenant_order_number");
+
+        builder.HasIndex(o => o.TenantId)
+            .HasDatabaseName("ix_purchase_orders_tenant_id");
+
+        builder.HasIndex(o => o.SupplierId)
+            .HasDatabaseName("ix_purchase_orders_supplier_id");
+
+        builder.HasQueryFilter(o => !o.IsDeleted);
+    }
+}

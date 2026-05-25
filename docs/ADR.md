@@ -8,14 +8,38 @@
 
 **Decision:** Single monorepo containing both server and client. Server is a modular monolith. Client is an Angular SPA. Both live under one `CoreGearERP` repository.
 
+**Full repository structure:**
+
 ```
 CoreGearERP/
+  CoreGearERP.sln
+  README.md
+  appsettings.example.json
+  .gitignore
   src/
-    server/       -- .NET modular monolith
-    client/       -- Angular SPA
+    server/
+      CoreGearERP.Host/
+      CoreGearERP.Common/
+      CoreGearERP.Inventory/
+      CoreGearERP.Procurement/
+      CoreGearERP.Production/
+      CoreGearERP.Sales/
+      CoreGearERP.Finance/
+    client/
+      coregear-ui/              -- Angular SPA, scaffolded at M6
   tests/
+    CoreGearERP.Inventory.Tests/
+    CoreGearERP.Procurement.Tests/
+    CoreGearERP.Production.Tests/
+    CoreGearERP.Sales.Tests/
+    CoreGearERP.Finance.Tests/
   docs/
+    ADR.md
+    DB migration.md
+    Domain model.md
 ```
+
+Note: `client/` and remaining test projects do not exist yet. They are shown here for clarity and will be added at their respective milestones.
 
 **Why:** One repo means one PR for changes that touch both backend and frontend. No cross-repo coordination overhead. Simpler for a single developer or small team. At M7 when Inventory is extracted it stays in the same repo as a second server project -- still one repo, now two deployables.
 
@@ -35,7 +59,44 @@ CoreGearERP/
 
 ---
 
-## ADR-002: Internal Module Architecture
+## ADR-002: Pragmatic DDD as Domain Modeling Approach
+
+**Status:** Accepted
+
+**Decision:** CoreGearERP uses a Pragmatic DDD approach -- taking the high-value parts of Domain-Driven Design without the full ceremony. This is a deliberate choice, not an oversight.
+
+**What we apply:**
+
+- **Rich entities with behaviour** -- state changes go through domain methods, never external setters. `Product.Deactivate()` enforces the rule that a discontinued product cannot be deactivated. The domain protects its own invariants.
+- **Value objects** -- `Money` and `Quantity` are immutable, equality by value, no identity. A bare decimal for a price or quantity is not allowed anywhere in the codebase.
+- **Factory methods** -- private constructors, entity creation only through `Create()`. An entity cannot exist in an invalid state.
+- **Domain exceptions** -- `DomainException` and `NotFoundException` thrown from inside the domain when a rule is violated. The application layer does not invent business rules.
+- **Bounded contexts** -- each module owns its schema, its DbContext, and its domain model. No cross-module DbContext sharing. Cross-module references are by Id only, never by navigation property.
+
+**What we deliberately skip:**
+
+- **Formal aggregate roots** -- we have not explicitly defined aggregate boundaries. Entities that act as roots are implicit. The added formality does not pay off at this scale.
+- **Repository pattern** -- handlers call DbContext directly. Repositories add an abstraction layer that rarely gets swapped out in practice and makes the code harder to read without meaningful benefit here.
+- **Domain events inside entities** -- in strict DDD, `Product.Create()` would raise a `ProductCreated` domain event internally collected by the aggregate. We use RabbitMQ events at the application layer instead. The outcome is the same, the mechanism is more visible and easier to reason about.
+- **Ubiquitous language sessions** -- there are no domain experts to align with. The language used in the code is informed by manufacturing ERP conventions.
+
+**Why Pragmatic DDD and not full DDD:**
+
+Full DDD earns its complexity when the domain is genuinely deep, the team is large, and the system will be maintained for years with changing requirements. CoreGearERP is a learning platform. Applying full DDD ceremony would mean writing more infrastructure than domain logic and spending more time on patterns than on understanding the actual business problem.
+
+The goal is to understand pressure points, not to produce a textbook DDD implementation.
+
+**Why not abandon DDD entirely:**
+
+Anemic domain models -- entities with only getters and setters, all logic in service classes -- are the most common cause of ERP codebases becoming unmaintainable. Business rules scatter across handlers, validators, and services with no single source of truth. Rich domain models with encapsulated behaviour prevent this. That value is worth keeping regardless of scale.
+
+**The label:**
+
+Pragmatic DDD. Domain-influenced architecture. If asked in an interview: Clean Architecture per module with DDD-influenced domain modeling. Deliberate decisions were made about what to apply and what to skip, and those decisions can be explained.
+
+---
+
+## ADR-003: Internal Module Architecture
 
 **Status:** Accepted
 
@@ -131,7 +192,7 @@ CoreGearERP.Host/
 
 ---
 
-## ADR-003: gRPC for Inter-Module Synchronous Communication
+## ADR-004: gRPC for Inter-Module Synchronous Communication
 
 **Status:** Accepted
 
@@ -143,7 +204,7 @@ CoreGearERP.Host/
 
 ---
 
-## ADR-004: RabbitMQ + MassTransit + Outbox Pattern
+## ADR-005: RabbitMQ + MassTransit + Outbox Pattern
 
 **Status:** Accepted
 
@@ -163,7 +224,7 @@ CoreGearERP.Host/
 
 ---
 
-## ADR-005: PostgreSQL
+## ADR-006: PostgreSQL
 
 **Status:** Accepted
 
@@ -175,7 +236,7 @@ CoreGearERP.Host/
 
 ---
 
-## ADR-006: Angular + PrimeNG
+## ADR-007: Angular + PrimeNG
 
 **Status:** Accepted
 
@@ -187,7 +248,7 @@ CoreGearERP.Host/
 
 ---
 
-## ADR-007: Caching Strategy
+## ADR-008: Caching Strategy
 
 **Status:** Accepted
 
@@ -324,7 +385,7 @@ Real patterns held back until the code actually needs them:
 
 ---
 
-## ADR-008: Authentication and Identity Strategy
+## ADR-009: Authentication and Identity Strategy
 
 **Status:** Accepted -- Production target. Dev token endpoint used during local development only.
 

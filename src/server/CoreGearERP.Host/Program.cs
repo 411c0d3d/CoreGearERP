@@ -1,6 +1,6 @@
-using CoreGearERP.Common.Application.Interfaces;
 using CoreGearERP.Host.Extensions;
 using CoreGearERP.Inventory.Extensions;
+using CoreGearERP.Procurement.Extensions;
 using Serilog;
 
 Log.Logger = new LoggerConfiguration()
@@ -13,33 +13,34 @@ try
 
     var builder = WebApplication.CreateBuilder(args);
 
-    builder.Host.UseSerilog((context, services, configuration) => configuration
-        .ReadFrom.Configuration(context.Configuration)
+    builder.Services.AddSerilog((services, configuration) => configuration
+        .ReadFrom.Configuration(builder.Configuration)
         .ReadFrom.Services(services)
         .WriteTo.Console());
 
     builder.Services
         .AddHost(builder.Configuration)
-        .AddInventoryModule(builder.Configuration);
+        .AddInventoryModule(builder.Configuration)
+        .AddProcurementModule(builder.Configuration);
 
     var app = builder.Build();
 
     app.UseHost();
-    app.UseSerilogRequestLogging();
 
     app.MapGet("/", () => "CoreGearERP");
     app.MapDevTokenEndpoint();
+    app.MapTestEndpoints();
+    app.MapInventoryEndpoints();
+    app.MapProcurementEndpoints();
 
-    app.MapGet("/me", (ICurrentUser user, ICurrentTenant tenant) =>
+    var lifetime = app.Services.GetRequiredService<IHostApplicationLifetime>();
+    lifetime.ApplicationStarted.Register(() =>
     {
-        return Results.Ok(new
-        {
-            userId   = user.UserId,
-            email    = user.Email,
-            tenantId = tenant.TenantId
-        });
-    }).RequireAuthorization();
-
+        var urls = string.Join(", ", app.Urls);
+        Log.Information("CoreGearERP running on {Environment} | Listening on {Urls}",
+            app.Environment.EnvironmentName,
+            urls);
+    });
     app.Run();
 }
 catch (Exception ex)

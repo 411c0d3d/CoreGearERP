@@ -1,9 +1,12 @@
 using System.Text;
 using CoreGearERP.Common.Application.Interfaces;
+using CoreGearERP.Host.Infrastructure;
+using CoreGearERP.Host.Infrastructure.Behaviors;
 using CoreGearERP.Host.Middleware;
 using FluentValidation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using Serilog;
 
 namespace CoreGearERP.Host.Extensions;
 
@@ -45,6 +48,16 @@ public static class HostExtensions
             });
 
         services.AddAuthorization();
+        services.AddScoped<IDispatcher, Dispatcher>();
+
+        // Global exception handling with Problem Details responses.
+        services.AddExceptionHandler<GlobalExceptionHandler>();
+        services.AddProblemDetails();
+
+        // Pipeline behaviors run in registration order.
+        // Logging wraps everything. Validation runs before the handler.
+        services.AddTransient(typeof(IPipelineBehavior<,>), typeof(LoggingBehavior<,>));
+        services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
         services.AddValidatorsFromAssemblies(AppDomain.CurrentDomain.GetAssemblies());
 
         return services;
@@ -55,7 +68,16 @@ public static class HostExtensions
     /// </summary>
     public static WebApplication UseHost(this WebApplication app)
     {
-        app.UseMiddleware<ExceptionMiddleware>();
+        app.UseExceptionHandler();
+        
+        app.UseSerilogRequestLogging(options =>
+        {
+            options.GetLevel = (httpContext, elapsed, ex) =>
+                ex is null
+                    ? Serilog.Events.LogEventLevel.Information
+                    : Serilog.Events.LogEventLevel.Warning;
+        });
+
         app.UseAuthentication();
         app.UseAuthorization();
         app.UseMiddleware<TenantResolutionMiddleware>();

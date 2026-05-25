@@ -1,6 +1,7 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using CoreGearERP.Common.Application.Interfaces;
 using Microsoft.IdentityModel.Tokens;
 
 namespace CoreGearERP.Host.Extensions;
@@ -15,43 +16,62 @@ public static class AuthExtensions
     /// </summary>
     public static WebApplication MapDevTokenEndpoint(this WebApplication app)
     {
-        app.MapPost("/dev/token", (IConfiguration config) =>
+        if (!app.Environment.IsDevelopment())
+        {
+            return app;
+        }
+
+        app.MapPost("/dev/token", (IConfiguration config, IWebHostEnvironment env) =>
         {
             var secretKey = config["Auth:SecretKey"]!;
             var issuer = config["Auth:Issuer"]!;
             var audience = config["Auth:Audience"]!;
 
-            var tenantId = Guid.Parse(config["Dev:TenantId"]
-                                      ?? throw new InvalidOperationException("Dev:TenantId is not configured."));
-
-            var userId = Guid.Parse(config["Dev:UserId"]
-                                    ?? throw new InvalidOperationException("Dev:UserId is not configured."));
-
-            var email = config["Dev:Email"]
-                        ?? throw new InvalidOperationException("Dev:Email is not configured.");
+            var tenantId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+            var userId = Guid.Parse("22222222-2222-2222-2222-222222222222");
 
             var claims = new[]
             {
                 new Claim("sub", userId.ToString()),
-                new Claim("email", email),
+                new Claim("email", "dev@coregear.local"),
                 new Claim("tenant_id", tenantId.ToString()),
             };
 
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
             var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
+            // Dev gets a 30-day token so you never hit expiry during development.
+            // The endpoint does not exist outside Development so this never reaches prod.
+            var expiry = DateTime.UtcNow.AddDays(30);
+
             var token = new JwtSecurityToken(
                 issuer: issuer,
                 audience: audience,
                 claims: claims,
-                expires: DateTime.UtcNow.AddHours(8),
+                expires: expiry,
                 signingCredentials: credentials);
 
             var tokenString = new JwtSecurityTokenHandler().WriteToken(token);
 
-            return Results.Ok(new { token = tokenString, tenantId, userId });
+            return Results.Ok(new
+            {
+                token = tokenString,
+                tenantId,
+                userId,
+                expires = expiry
+            });
         });
 
+        app.MapGet("/me", (ICurrentUser user, ICurrentTenant tenant) =>
+        {
+            return Results.Ok(new
+            {
+                userId   = user.UserId,
+                email    = user.Email,
+                tenantId = tenant.TenantId
+            });
+        }).RequireAuthorization();
+        
         return app;
     }
 }
