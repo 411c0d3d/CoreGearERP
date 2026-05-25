@@ -1,6 +1,8 @@
 using CoreGearERP.Host.Extensions;
 using CoreGearERP.Inventory.Extensions;
 using CoreGearERP.Procurement.Extensions;
+using CoreGearERP.Production.Extensions;
+using CoreGearERP.Sales.Extensions;
 using Serilog;
 
 Log.Logger = new LoggerConfiguration()
@@ -21,7 +23,9 @@ try
     builder.Services
         .AddHost(builder.Configuration)
         .AddInventoryModule(builder.Configuration)
-        .AddProcurementModule(builder.Configuration);
+        .AddProcurementModule(builder.Configuration)
+        .AddProductionModule(builder.Configuration)
+        .AddSalesModule(builder.Configuration);
 
     var app = builder.Build();
 
@@ -32,6 +36,8 @@ try
     app.MapTestEndpoints();
     app.MapInventoryEndpoints();
     app.MapProcurementEndpoints();
+    app.MapProductionEndpoints();
+    app.MapSalesEndpoints();
 
     var lifetime = app.Services.GetRequiredService<IHostApplicationLifetime>();
     lifetime.ApplicationStarted.Register(() =>

@@ -25,6 +25,7 @@ public static class InventoryExtensions
                 configuration.GetConnectionString("CoreGearERP") + ";Search Path=inventory"));
 
         services.AddScoped<IInventoryCommandService, InventoryCommandService>();
+        services.AddScoped<IInventoryQueryService, InventoryQueryService>();
 
         // Register all command and query handlers in this module.
         var assembly = typeof(InventoryExtensions).Assembly;

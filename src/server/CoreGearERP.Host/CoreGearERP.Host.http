@@ -55,8 +55,8 @@ Authorization: Bearer {{BearerToken}}
 Content-Type: application/json
 
 {
-  "productId": "b3262f1d-f13b-485a-bdcc-54aa7e6b1f99",
-  "warehouseId": "4ce09a0e-385a-4ea5-9f3c-e50bac7e6cc8",
+  "productId": "f2e34480-4147-46bf-b575-e19d16c29ec9",
+  "warehouseId": "931424de-5d7d-4f95-8041-46d3d43a9f67",
   "unitCode": "KG"
 }
 
@@ -99,7 +99,7 @@ Authorization: Bearer {{BearerToken}}
 Content-Type: application/json
 
 {
-  "supplierId": "76699b81-ada0-470f-83c1-f6567290f26b",
+  "supplierId": "f2782acb-472d-4304-a26d-72d43783e40e",
   "notes": "First order",
   "lines": [
     {
@@ -121,8 +121,10 @@ Authorization: Bearer {{BearerToken}}
 Content-Type: application/json
 
 ####
-@orderId = 56465191-4d0c-4329-bae3-8dba536cd0b5
+@orderId = 636b588e-b724-4fb4-9392-bb01b85c1a59
 @stockItem = ae6bcf08-d97c-48bd-ad39-21cba9204f66
+@warehouseId = 931424de-5d7d-4f95-8041-46d3d43a9f67
+
 PUT {{HostAddress}}/procurement/orders/{{orderId}}/confirm
 Authorization: Bearer {{BearerToken}}
 Content-Type: application/json
@@ -139,9 +141,21 @@ Authorization: Bearer {{BearerToken}}
 Content-Type: application/json
 
 {
-  "productId": "8c40fb66-9a54-403c-b27d-b1489876281e",
-  "warehouseId": "4ce09a0e-385a-4ea5-9f3c-e50bac7e6cc8",
+  "productId": "f2e34480-4147-46bf-b575-e19d16c29ec9",
+  "warehouseId": "{{warehouseId}}",
   "unitCode": "KG"
+}
+
+####
+
+POST {{HostAddress}}/inventory/stock-items
+Authorization: Bearer {{BearerToken}}
+Content-Type: application/json
+
+{
+"productId": "f2e34480-4147-46bf-b575-e19d16c29ec9",
+"warehouseId": "{{warehouseId}}",
+"unitCode": "KG"
 }
 
 ####
@@ -152,7 +166,7 @@ Content-Type: application/json
 
 {
   "purchaseOrderLineId": "49f63e6a-e798-458f-99de-d93d0f4e73bd",
-  "warehouseId": "4ce09a0e-385a-4ea5-9f3c-e50bac7e6cc8",
+  "warehouseId": "{{warehouseId}}",
   "quantity": 50
 }
 
@@ -174,3 +188,130 @@ Content-Type: application/json
 }
 
 ####
+# @no-log
+####
+
+POST {{HostAddress}}/production/work-centers
+Authorization: Bearer {{BearerToken}}
+Content-Type: application/json
+
+{
+  "code": "WC-MAIN",
+  "name": "Main Assembly",
+  "capacityPerHour": 50,
+  "description": "Main assembly work center"
+}
+
+####
+# @no-log
+####
+
+POST {{HostAddress}}/production/bills-of-materials
+Authorization: Bearer {{BearerToken}}
+Content-Type: application/json
+
+{
+  "finishedProductId": "8c40fb66-9a54-403c-b27d-b1489876281e",
+  "finishedProductCode": "STEEL-001",
+  "finishedProductName": "Steel Rod 10mm",
+  "version": "v1.0",
+  "notes": "Standard steel rod bill of materials",
+  "lines": [
+    {
+      "componentProductId": "b3262f1d-f13b-485a-bdcc-54aa7e6b1f99",
+      "componentProductCode": "STEEL-002",
+      "componentProductName": "Steel Rod 20mm",
+      "quantity": 1.2,
+      "unitCode": "KG"
+    }
+  ]
+}
+
+####
+# @no-log
+####
+
+POST {{HostAddress}}/production/orders
+Authorization: Bearer {{BearerToken}}
+Content-Type: application/json
+
+{
+"billOfMaterialsId": "33488e28-846e-42dc-a655-116d9a4022f9",
+"workCenterId": "97993e3c-e355-419e-8e34-a646071b32d2",
+"plannedQuantity": 10,
+"unitCode": "PCS",
+"notes": "First production run"
+}
+
+####
+# @no-log
+####
+
+POST {{HostAddress}}/sales/customers
+Authorization: Bearer {{BearerToken}}
+Content-Type: application/json
+
+{
+"code": "CUST-001",
+"name": "Berliner Maschinenbau GmbH",
+"contactEmail": "orders@berliner-mb.de",
+"contactPhone": "+49 30 98765432",
+"address": "Maschinenstraße 5, 10117 Berlin"
+}
+
+####
+# @no-log
+####
+
+GET {{HostAddress}}/sales/orders
+Authorization: Bearer {{BearerToken}}
+Content-Type: application/json
+
+####
+# @no-log
+####
+
+POST {{HostAddress}}/sales/orders
+Authorization: Bearer {{BearerToken}}
+Content-Type: application/json
+
+{
+"customerId": "5ee006da-978e-4012-b0f3-6ec6f99facb5",
+"notes": "First sales order",
+"lines": [
+{
+"productId": "aee14ae2-221b-487b-8d97-de205baff279",
+"productCode": "STEEL-001",
+"productName": "Steel Rod 10mm",
+"quantity": 10,
+"unitCode": "KG",
+"unitPrice": 5.00,
+"currencyCode": "EUR"
+}
+]
+}
+####
+# @no-log
+####
+
+POST {{HostAddress}}/inventory/stock-items
+Authorization: Bearer {{BearerToken}}
+Content-Type: application/json
+
+{
+  "productId": "8c40fb66-9a54-403c-b27d-b1489876281e",
+  "warehouseId": "4ce09a0e-385a-4ea5-9f3c-e50bac7e6cc8",
+  "unitCode": "KG"
+}
+
+####
+# @no-log
+####
+
+PUT {{HostAddress}}/sales/orders/f23d602b-c339-46f9-8789-6fa24b63e7e4/confirm
+Authorization: Bearer {{BearerToken}}
+Content-Type: application/json
+
+{
+"warehouseId": "4ce09a0e-385a-4ea5-9f3c-e50bac7e6cc8"
+}

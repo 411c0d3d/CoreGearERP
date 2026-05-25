@@ -1,5 +1,9 @@
 using CoreGearERP.Common.Application.Interfaces;
 using CoreGearERP.Procurement.Application.PurchaseOrders;
+using CoreGearERP.Procurement.Application.PurchaseOrders.CreatePurchaseOrder;
+using CoreGearERP.Procurement.Application.PurchaseOrders.GetPurchaseOrderById;
+using CoreGearERP.Procurement.Application.PurchaseOrders.GetPurchaseOrders;
+using CoreGearERP.Procurement.Application.PurchaseOrders.ReceiveGoods;
 using CoreGearERP.Procurement.Application.Suppliers;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;

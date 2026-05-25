@@ -1,0 +1,718 @@
+# @no-log
+# CoreGearERP M2 + M3 End-to-End Flow Test
+# Tests the complete operational chain:
+#   Procurement: create product, warehouse, supplier, PO, receive goods -> stock increases
+#   Production: create BOM, work center, production order, confirm, start, complete -> stock consumed, finished goods added
+#   Sales: create customer, sales order, confirm -> stock reserved
+# Run against a clean database
+
+@HostAddress = http://localhost:5014
+@BearerToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIyMjIyMjIyMi0yMjIyLTIyMjItMjIyMi0yMjIyMjIyMjIyMjIiLCJlbWFpbCI6ImRldkBjb3JlZ2Vhci5sb2NhbCIsInRlbmFudF9pZCI6IjExMTExMTExLTExMTEtMTExMS0xMTExLTExMTExMTExMTExMSIsImV4cCI6MTc4MjIxOTA2MiwiaXNzIjoiY29yZWdlYXItYXBpIiwiYXVkIjoiY29yZWdlYXItY2xpZW50In0._QAy1UbI7lBi2NVG3DvFenB-PaMjNiEwmklzjSJyVrw
+
+### Step 0 -- Reset test data
+DELETE {{HostAddress}}/test/reset
+Authorization: Bearer {{BearerToken}}
+
+> {%
+    client.test("Test data cleared", function() {
+        client.assert(response.status === 200, "Expected 200");
+    });
+%}
+
+####
+# @no-log
+####
+
+### Step 1 -- Verify auth
+GET {{HostAddress}}/me
+Authorization: Bearer {{BearerToken}}
+
+> {%
+    client.test("Auth resolves user and tenant", function() {
+        client.assert(response.status === 200, "Expected 200");
+    });
+%}
+
+####
+# @no-log
+####
+
+### Step 2 -- Create finished product
+POST {{HostAddress}}/inventory/products
+Authorization: Bearer {{BearerToken}}
+Content-Type: application/json
+
+{
+  "code": "PROD-FINISHED",
+  "name": "Finished Steel Assembly",
+  "unitCode": "PCS",
+  "description": "Finished product produced from raw steel"
+}
+
+> {%
+    client.test("Finished product created", function() {
+        client.assert(response.status === 201, "Expected 201");
+        client.global.set("finishedProductId", response.body.id);
+    });
+%}
+
+####
+# @no-log
+####
+
+### Step 3 -- Create component product
+POST {{HostAddress}}/inventory/products
+Authorization: Bearer {{BearerToken}}
+Content-Type: application/json
+
+{
+  "code": "COMP-STEEL",
+  "name": "Raw Steel Component",
+  "unitCode": "KG",
+  "description": "Raw steel used as component in production"
+}
+
+> {%
+    client.test("Component product created", function() {
+        client.assert(response.status === 201, "Expected 201");
+        client.global.set("componentProductId", response.body.id);
+    });
+%}
+
+####
+# @no-log
+####
+
+### Step 4 -- Create warehouse
+POST {{HostAddress}}/inventory/warehouses
+Authorization: Bearer {{BearerToken}}
+Content-Type: application/json
+
+{
+  "code": "WH-E2E",
+  "name": "E2E Test Warehouse",
+  "location": "Berlin, Germany"
+}
+
+> {%
+    client.test("Warehouse created", function() {
+        client.assert(response.status === 201, "Expected 201");
+        client.global.set("warehouseId", response.body.id);
+    });
+%}
+
+####
+# @no-log
+####
+
+### Step 5 -- Create stock item for component
+POST {{HostAddress}}/inventory/stock-items
+Authorization: Bearer {{BearerToken}}
+Content-Type: application/json
+
+{
+  "productId": "{{componentProductId}}",
+  "warehouseId": "{{warehouseId}}",
+  "unitCode": "KG"
+}
+
+> {%
+    client.test("Component stock item created", function() {
+        client.assert(response.status === 201, "Expected 201");
+        client.global.set("componentStockItemId", response.body.id);
+    });
+%}
+
+####
+# @no-log
+####
+
+### Step 6 -- Create stock item for finished product
+POST {{HostAddress}}/inventory/stock-items
+Authorization: Bearer {{BearerToken}}
+Content-Type: application/json
+
+{
+  "productId": "{{finishedProductId}}",
+  "warehouseId": "{{warehouseId}}",
+  "unitCode": "PCS"
+}
+
+> {%
+    client.test("Finished product stock item created", function() {
+        client.assert(response.status === 201, "Expected 201");
+        client.global.set("finishedStockItemId", response.body.id);
+    });
+%}
+
+####
+# @no-log
+####
+
+### Step 7 -- Create supplier
+POST {{HostAddress}}/procurement/suppliers
+Authorization: Bearer {{BearerToken}}
+Content-Type: application/json
+
+{
+  "code": "SUP-E2E",
+  "name": "E2E Test Supplier GmbH",
+  "contactEmail": "e2e@test-supplier.de",
+  "contactPhone": "+49 30 00000000",
+  "address": "Teststraße 1, 10115 Berlin"
+}
+
+> {%
+    client.test("Supplier created", function() {
+        client.assert(response.status === 201, "Expected 201");
+        client.global.set("supplierId", response.body.id);
+    });
+%}
+
+####
+# @no-log
+####
+
+### Step 8 -- Create purchase order for component
+POST {{HostAddress}}/procurement/orders
+Authorization: Bearer {{BearerToken}}
+Content-Type: application/json
+
+{
+  "supplierId": "{{supplierId}}",
+  "notes": "E2E component procurement",
+  "lines": [
+    {
+      "productId": "{{componentProductId}}",
+      "productCode": "COMP-STEEL",
+      "productName": "Raw Steel Component",
+      "quantity": 100,
+      "unitCode": "KG",
+      "unitPrice": 2.50,
+      "currencyCode": "EUR"
+    }
+  ]
+}
+
+> {%
+    client.test("Purchase order created in Draft", function() {
+        client.assert(response.status === 201, "Expected 201");
+        client.global.set("poId", response.body.id);
+    });
+%}
+
+####
+# @no-log
+####
+
+### Step 9 -- Confirm purchase order
+PUT {{HostAddress}}/procurement/orders/{{poId}}/confirm
+Authorization: Bearer {{BearerToken}}
+Content-Type: application/json
+
+> {%
+    client.test("Purchase order confirmed", function() {
+        client.assert(response.status === 200, "Expected 200");
+    });
+%}
+
+####
+# @no-log
+####
+
+### Step 10 -- Get PO line id
+GET {{HostAddress}}/procurement/orders/{{poId}}
+Authorization: Bearer {{BearerToken}}
+
+> {%
+    client.test("PO status is Confirmed", function() {
+        client.assert(response.status === 200, "Expected 200");
+        client.assert(response.body.status === "Confirmed", "Expected Confirmed");
+        client.global.set("poLineId", response.body.lines[0].id);
+    });
+%}
+
+####
+# @no-log
+####
+
+### Step 11 -- Receive all goods
+POST {{HostAddress}}/procurement/orders/{{poId}}/receive
+Authorization: Bearer {{BearerToken}}
+Content-Type: application/json
+
+{
+  "purchaseOrderLineId": "{{poLineId}}",
+  "warehouseId": "{{warehouseId}}",
+  "quantity": 100
+}
+
+> {%
+    client.test("Goods received", function() {
+        client.assert(response.status === 200, "Expected 200");
+    });
+%}
+
+####
+# @no-log
+####
+
+### Step 12 -- Verify PO is Received
+GET {{HostAddress}}/procurement/orders/{{poId}}
+Authorization: Bearer {{BearerToken}}
+
+> {%
+    client.test("PO status is Received", function() {
+        client.assert(response.status === 200, "Expected 200");
+        client.assert(response.body.status === "Received", "Expected Received");
+    });
+%}
+
+####
+# @no-log
+####
+
+### Step 13 -- Verify component stock movement created
+GET {{HostAddress}}/inventory/stock-items/{{componentStockItemId}}/movements
+Authorization: Bearer {{BearerToken}}
+
+> {%
+    client.test("Component stock movement created", function() {
+        client.assert(response.status === 200, "Expected 200");
+        client.assert(response.body.length === 1, "Expected 1 movement");
+        client.assert(response.body[0].movementType === "GoodsReceipt", "Expected GoodsReceipt");
+        client.assert(response.body[0].quantity === 100, "Expected 100 KG");
+    });
+%}
+
+####
+# @no-log
+####
+
+### Step 14 -- Create work center
+POST {{HostAddress}}/production/work-centers
+Authorization: Bearer {{BearerToken}}
+Content-Type: application/json
+
+{
+  "code": "WC-E2E",
+  "name": "E2E Assembly Center",
+  "capacityPerHour": 10,
+  "description": "Test work center"
+}
+
+> {%
+    client.test("Work center created", function() {
+        client.assert(response.status === 201, "Expected 201");
+        client.global.set("workCenterId", response.body.id);
+    });
+%}
+
+####
+# @no-log
+####
+
+### Step 15 -- Create bill of materials
+POST {{HostAddress}}/production/bills-of-materials
+Authorization: Bearer {{BearerToken}}
+Content-Type: application/json
+
+{
+  "finishedProductId": "{{finishedProductId}}",
+  "finishedProductCode": "PROD-FINISHED",
+  "finishedProductName": "Finished Steel Assembly",
+  "version": "v1.0",
+  "notes": "E2E BOM",
+  "lines": [
+    {
+      "componentProductId": "{{componentProductId}}",
+      "componentProductCode": "COMP-STEEL",
+      "componentProductName": "Raw Steel Component",
+      "quantity": 5,
+      "unitCode": "KG"
+    }
+  ]
+}
+
+> {%
+    client.test("Bill of materials created", function() {
+        client.assert(response.status === 201, "Expected 201");
+        client.global.set("bomId", response.body.id);
+    });
+%}
+
+####
+# @no-log
+####
+
+### Step 16 -- Create production order
+POST {{HostAddress}}/production/orders
+Authorization: Bearer {{BearerToken}}
+Content-Type: application/json
+
+{
+  "billOfMaterialsId": "{{bomId}}",
+  "workCenterId": "{{workCenterId}}",
+  "plannedQuantity": 10,
+  "unitCode": "PCS",
+  "notes": "E2E production run"
+}
+
+> {%
+    client.test("Production order created in Draft", function() {
+        client.assert(response.status === 201, "Expected 201");
+        client.global.set("productionOrderId", response.body.id);
+    });
+%}
+
+####
+# @no-log
+####
+
+### Step 17 -- Confirm production order (reserves 50 KG of component)
+PUT {{HostAddress}}/production/orders/{{productionOrderId}}/confirm
+Authorization: Bearer {{BearerToken}}
+Content-Type: application/json
+
+{
+  "componentWarehouses": [
+    {
+      "componentProductId": "{{componentProductId}}",
+      "warehouseId": "{{warehouseId}}"
+    }
+  ]
+}
+
+> {%
+    client.test("Production order confirmed with stock reserved", function() {
+        client.assert(response.status === 200, "Expected 200");
+    });
+%}
+
+####
+# @no-log
+####
+
+### Step 18 -- Verify production order is Confirmed
+GET {{HostAddress}}/production/orders
+Authorization: Bearer {{BearerToken}}
+
+> {%
+    client.test("Production order status is Confirmed", function() {
+        client.assert(response.status === 200, "Expected 200");
+        client.assert(response.body.length > 0, "Expected at least one production order");
+        client.assert(response.body[0].status === "Confirmed", "Expected Confirmed");
+    });
+%}
+
+####
+# @no-log
+####
+
+### Step 19 -- Verify component stock is reserved
+GET {{HostAddress}}/inventory/stock-items
+Authorization: Bearer {{BearerToken}}
+
+> {%
+    client.test("Component stock has reservation", function() {
+        client.assert(response.status === 200, "Expected 200");
+        var component = response.body.find(function(s) { return s.productCode === "COMP-STEEL"; });
+        client.assert(component !== undefined, "Expected component stock item");
+        client.assert(component.quantityOnHand === 100, "Expected 100 KG on hand");
+        client.assert(component.quantityReserved === 50, "Expected 50 KG reserved");
+        client.assert(component.quantityAvailable === 50, "Expected 50 KG available");
+    });
+%}
+
+####
+# @no-log
+####
+
+### Step 19b -- Start production order
+PUT {{HostAddress}}/production/orders/{{productionOrderId}}/start
+Authorization: Bearer {{BearerToken}}
+Content-Type: application/json
+
+> {%
+    client.test("Production order started", function() {
+        client.assert(response.status === 200, "Expected 200");
+    });
+%}
+
+####
+# @no-log
+####
+
+### Step 19c -- Complete production order
+PUT {{HostAddress}}/production/orders/{{productionOrderId}}/complete
+Authorization: Bearer {{BearerToken}}
+Content-Type: application/json
+
+{
+  "finishedGoodsWarehouseId": "{{warehouseId}}",
+  "actualQuantity": 10,
+  "componentWarehouses": [
+    {
+      "componentProductId": "{{componentProductId}}",
+      "warehouseId": "{{warehouseId}}"
+    }
+  ]
+}
+
+> {%
+    client.test("Production order completed", function() {
+        client.assert(response.status === 200, "Expected 200");
+    });
+%}
+
+####
+# @no-log
+####
+
+### Step 19d -- Verify component stock consumed
+GET {{HostAddress}}/inventory/stock-items/{{componentStockItemId}}/movements
+Authorization: Bearer {{BearerToken}}
+
+> {%
+    client.test("Component GoodsIssue movement created", function() {
+        client.assert(response.status === 200, "Expected 200");
+        var issueMovement = response.body.find(function(m) { return m.movementType === "GoodsIssue"; });
+        client.assert(issueMovement !== undefined, "Expected GoodsIssue movement");
+        client.assert(issueMovement.quantity === 50, "Expected 50 KG issued");
+    });
+%}
+
+####
+# @no-log
+####
+
+### Step 19e -- Verify finished goods added
+GET {{HostAddress}}/inventory/stock-items/{{finishedStockItemId}}/movements
+Authorization: Bearer {{BearerToken}}
+
+> {%
+    client.test("Finished goods ProductionReceipt movement created", function() {
+        client.assert(response.status === 200, "Expected 200");
+        client.assert(response.body.length === 1, "Expected 1 movement");
+        client.assert(response.body[0].movementType === "ProductionReceipt", "Expected ProductionReceipt");
+        client.assert(response.body[0].quantity === 10, "Expected 10 PCS");
+    });
+%}
+
+####
+# @no-log
+####
+
+### Step 19f -- Verify final stock levels after production
+GET {{HostAddress}}/inventory/stock-items
+Authorization: Bearer {{BearerToken}}
+
+> {%
+    client.test("Stock levels correct after production", function() {
+        client.assert(response.status === 200, "Expected 200");
+        var component = response.body.find(function(s) { return s.productCode === "COMP-STEEL"; });
+        var finished = response.body.find(function(s) { return s.productCode === "PROD-FINISHED"; });
+        client.assert(component.quantityOnHand === 50, "Expected 50 KG component remaining");
+        client.assert(component.quantityReserved === 0, "Expected 0 KG reserved after completion");
+        client.assert(finished.quantityOnHand === 10, "Expected 10 PCS finished goods");
+    });
+%}
+
+####
+# @no-log
+####
+
+### Step 20 -- Create customer
+POST {{HostAddress}}/sales/customers
+Authorization: Bearer {{BearerToken}}
+Content-Type: application/json
+
+{
+  "code": "CUST-E2E",
+  "name": "E2E Test Customer GmbH",
+  "contactEmail": "orders@e2e-customer.de",
+  "contactPhone": "+49 30 11111111",
+  "address": "Kundenstraße 1, 10115 Berlin"
+}
+
+> {%
+    client.test("Customer created", function() {
+        client.assert(response.status === 201, "Expected 201");
+        client.global.set("customerId", response.body.id);
+    });
+%}
+
+####
+# @no-log
+####
+
+### Step 21 -- Create sales order
+POST {{HostAddress}}/sales/orders
+Authorization: Bearer {{BearerToken}}
+Content-Type: application/json
+
+{
+  "customerId": "{{customerId}}",
+  "notes": "E2E sales order",
+  "lines": [
+    {
+      "productId": "{{finishedProductId}}",
+      "productCode": "PROD-FINISHED",
+      "productName": "Finished Steel Assembly",
+      "quantity": 5,
+      "unitCode": "PCS",
+      "unitPrice": 25.00,
+      "currencyCode": "EUR"
+    }
+  ]
+}
+
+> {%
+    client.test("Sales order created in Draft", function() {
+        client.assert(response.status === 201, "Expected 201");
+        client.global.set("salesOrderId", response.body.id);
+    });
+%}
+
+####
+# @no-log
+####
+
+### Step 22 -- Confirm sales order (reserves 5 PCS of finished product)
+PUT {{HostAddress}}/sales/orders/{{salesOrderId}}/confirm
+Authorization: Bearer {{BearerToken}}
+Content-Type: application/json
+
+{
+  "warehouseId": "{{warehouseId}}"
+}
+
+> {%
+    client.test("Sales order confirmed with stock reserved", function() {
+        client.assert(response.status === 200, "Expected 200");
+    });
+%}
+
+####
+# @no-log
+####
+
+### Step 23 -- Verify sales order is Confirmed
+GET {{HostAddress}}/sales/orders/{{salesOrderId}}
+Authorization: Bearer {{BearerToken}}
+
+> {%
+    client.test("Sales order status is Confirmed", function() {
+        client.assert(response.status === 200, "Expected 200");
+        client.assert(response.body.status === "Confirmed", "Expected Confirmed");
+        client.assert(response.body.lines.length > 0, "Expected at least one line");
+        client.global.set("salesLineId", response.body.lines[0].id);
+    });
+%}
+
+####
+# @no-log
+####
+
+### Step 24 -- Verify finished goods stock is reserved
+GET {{HostAddress}}/inventory/stock-items
+Authorization: Bearer {{BearerToken}}
+
+> {%
+    client.test("Finished goods stock has reservation", function() {
+        client.assert(response.status === 200, "Expected 200");
+        var finished = response.body.find(function(s) { return s.productCode === "PROD-FINISHED"; });
+        client.assert(finished !== undefined, "Expected finished goods stock item");
+        client.assert(finished.quantityOnHand === 10, "Expected 10 PCS on hand");
+        client.assert(finished.quantityReserved === 5, "Expected 5 PCS reserved");
+        client.assert(finished.quantityAvailable === 5, "Expected 5 PCS available");
+    });
+%}
+
+####
+# @no-log
+####
+
+### Step 25 -- Ship sales order
+POST {{HostAddress}}/sales/orders/{{salesOrderId}}/ship
+Authorization: Bearer {{BearerToken}}
+Content-Type: application/json
+
+{
+  "warehouseId": "{{warehouseId}}",
+  "notes": "E2E shipment",
+  "lines": [
+    {
+      "salesOrderLineId": "{{salesLineId}}",
+      "productId": "{{finishedProductId}}",
+      "productCode": "PROD-FINISHED",
+      "quantity": 5,
+      "unitCode": "PCS"
+    }
+  ]
+}
+
+> {%
+    client.test("Shipment created", function() {
+        client.assert(response.status === 201, "Expected 201");
+        client.global.set("shipmentId", response.body.id);
+    });
+%}
+
+####
+# @no-log
+####
+
+### Step 26 -- Verify sales order is Shipped
+GET {{HostAddress}}/sales/orders/{{salesOrderId}}
+Authorization: Bearer {{BearerToken}}
+
+> {%
+    client.test("Sales order status is Shipped", function() {
+        client.assert(response.status === 200, "Expected 200");
+        client.assert(response.body.status === "Shipped", "Expected Shipped");
+        client.assert(response.body.lines[0].quantityShipped === 5, "Expected 5 PCS shipped");
+    });
+%}
+
+####
+# @no-log
+####
+
+### Step 27 -- Verify SalesShipment stock movement created
+GET {{HostAddress}}/inventory/stock-items/{{finishedStockItemId}}/movements
+Authorization: Bearer {{BearerToken}}
+
+> {%
+    client.test("SalesShipment movement created", function() {
+        client.assert(response.status === 200, "Expected 200");
+        var shipMovement = response.body.find(function(m) { return m.movementType === "SalesShipment"; });
+        client.assert(shipMovement !== undefined, "Expected SalesShipment movement");
+        client.assert(shipMovement.quantity === 5, "Expected 5 PCS shipped");
+    });
+%}
+
+####
+# @no-log
+####
+
+### Step 28 -- Verify final stock levels after shipment
+GET {{HostAddress}}/inventory/stock-items
+Authorization: Bearer {{BearerToken}}
+
+> {%
+    client.test("Final stock levels correct after shipment", function() {
+        client.assert(response.status === 200, "Expected 200");
+        var finished = response.body.find(function(s) { return s.productCode === "PROD-FINISHED"; });
+        client.assert(finished.quantityOnHand === 5, "Expected 5 PCS remaining after shipment");
+        client.assert(finished.quantityReserved === 0, "Expected 0 PCS reserved after shipment");
+        client.assert(finished.quantityAvailable === 5, "Expected 5 PCS available");
+    });
+%}
+
+####
+# @no-log
+####
+
+GET {{HostAddress}}/inventory/stock-items
+Authorization: Bearer {{BearerToken}}

@@ -19,6 +19,9 @@ public class StockItemConfiguration : IEntityTypeConfiguration<StockItem>
         builder.Property(s => s.TenantId).HasColumnName("tenant_id").IsRequired();
         builder.Property(s => s.ProductId).HasColumnName("product_id").IsRequired();
         builder.Property(s => s.WarehouseId).HasColumnName("warehouse_id").IsRequired();
+        builder.Property(s => s.ProductCode).HasColumnName("product_code").HasMaxLength(50).IsRequired();
+        builder.Property(s => s.ProductName).HasColumnName("product_name").HasMaxLength(200).IsRequired();
+        builder.Property(s => s.WarehouseCode).HasColumnName("warehouse_code").HasMaxLength(50).IsRequired();
         builder.Property(s => s.Status).HasColumnName("status").HasMaxLength(50).IsRequired();
         builder.Property(s => s.IsDeleted).HasColumnName("is_deleted").IsRequired();
         builder.Property(s => s.CreatedAt).HasColumnName("created_at").IsRequired();

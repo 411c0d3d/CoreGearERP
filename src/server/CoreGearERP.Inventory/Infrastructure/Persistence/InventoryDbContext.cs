@@ -1,5 +1,4 @@
 using CoreGearERP.Common.Application.Interfaces;
-using CoreGearERP.Common.Domain.Entities;
 using CoreGearERP.Inventory.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
