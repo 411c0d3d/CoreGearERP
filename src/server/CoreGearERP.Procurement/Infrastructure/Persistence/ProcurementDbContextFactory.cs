@@ -4,17 +4,17 @@ using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.Extensions.Configuration;
 using Npgsql;
 
-namespace CoreGearERP.Inventory.Infrastructure.Persistence;
+namespace CoreGearERP.Procurement.Infrastructure.Persistence;
 
 /// <summary>
 /// Design time factory for EF Core CLI tools.
 /// Only used by dotnet ef migrations -- never at runtime.
 /// </summary>
-public class InventoryDbContextFactory : IDesignTimeDbContextFactory<InventoryDbContext>
+public class ProcurementDbContextFactory : IDesignTimeDbContextFactory<ProcurementDbContext>
 {
-    private const string Schema = "inventory";
+    private const string Schema = "procurement";
 
-    public InventoryDbContext CreateDbContext(string[] args)
+    public ProcurementDbContext CreateDbContext(string[] args)
     {
         var configuration = new ConfigurationBuilder()
             .SetBasePath(Path.Combine(Directory.GetCurrentDirectory(), "../CoreGearERP.Host"))
@@ -27,11 +27,11 @@ public class InventoryDbContextFactory : IDesignTimeDbContextFactory<InventoryDb
 
         EnsureSchemaExists(baseConnection);
 
-        var options = new DbContextOptionsBuilder<InventoryDbContext>()
+        var options = new DbContextOptionsBuilder<ProcurementDbContext>()
             .UseNpgsql($"{baseConnection};Search Path={Schema}")
             .Options;
 
-        return new InventoryDbContext(options, new DesignTimeCurrentTenant());
+        return new ProcurementDbContext(options, new DesignTimeCurrentTenant());
     }
 
     private static void EnsureSchemaExists(string connectionString)

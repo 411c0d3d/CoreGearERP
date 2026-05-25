@@ -71,3 +71,106 @@ Content-Type: application/json
 GET {{HostAddress}}/inventory/stock-items
 Authorization: Bearer {{BearerToken}}
 Content-Type: application/json
+
+####
+
+POST {{HostAddress}}/procurement/suppliers
+Authorization: Bearer {{BearerToken}}
+Content-Type: application/json
+
+{
+  "code": "SUP-001",
+  "name": "Deutsche Steel GmbH",
+  "contactEmail": "orders@deutsche-steel.de",
+  "contactPhone": "+49 30 12345678",
+  "address": "Industriestraße 1, 10115 Berlin"
+}
+
+####
+
+GET {{HostAddress}}/procurement/suppliers
+Authorization: Bearer {{BearerToken}}
+Content-Type: application/json
+
+####
+
+POST {{HostAddress}}/procurement/orders
+Authorization: Bearer {{BearerToken}}
+Content-Type: application/json
+
+{
+  "supplierId": "76699b81-ada0-470f-83c1-f6567290f26b",
+  "notes": "First order",
+  "lines": [
+    {
+      "productId": "8c40fb66-9a54-403c-b27d-b1489876281e",
+      "productCode": "STEEL-001",
+      "productName": "Steel Rod 10mm",
+      "quantity": 100,
+      "unitCode": "KG",
+      "unitPrice": 2.50,
+      "currencyCode": "EUR"
+    }
+  ]
+}
+
+####
+
+GET {{HostAddress}}/procurement/orders
+Authorization: Bearer {{BearerToken}}
+Content-Type: application/json
+
+####
+@orderId = 56465191-4d0c-4329-bae3-8dba536cd0b5
+@stockItem = ae6bcf08-d97c-48bd-ad39-21cba9204f66
+PUT {{HostAddress}}/procurement/orders/{{orderId}}/confirm
+Authorization: Bearer {{BearerToken}}
+Content-Type: application/json
+
+####
+
+GET {{HostAddress}}/procurement/orders/{{orderId}}
+Authorization: Bearer {{BearerToken}}
+
+####
+
+POST {{HostAddress}}/inventory/stock-items
+Authorization: Bearer {{BearerToken}}
+Content-Type: application/json
+
+{
+  "productId": "8c40fb66-9a54-403c-b27d-b1489876281e",
+  "warehouseId": "4ce09a0e-385a-4ea5-9f3c-e50bac7e6cc8",
+  "unitCode": "KG"
+}
+
+####
+
+POST {{HostAddress}}/procurement/orders/{{orderId}}/receive
+Authorization: Bearer {{BearerToken}}
+Content-Type: application/json
+
+{
+  "purchaseOrderLineId": "49f63e6a-e798-458f-99de-d93d0f4e73bd",
+  "warehouseId": "4ce09a0e-385a-4ea5-9f3c-e50bac7e6cc8",
+  "quantity": 50
+}
+
+####
+
+GET {{HostAddress}}/inventory/stock-items/{{stockItem}}/movements
+Authorization: Bearer {{BearerToken}}
+
+####
+
+POST {{HostAddress}}/procurement/orders/{{orderId}}/receive
+Authorization: Bearer {{BearerToken}}
+Content-Type: application/json
+
+{
+  "purchaseOrderLineId": "49f63e6a-e798-458f-99de-d93d0f4e73bd",
+  "warehouseId": "4ce09a0e-385a-4ea5-9f3c-e50bac7e6cc8",
+  "quantity": 50
+}
+
+####

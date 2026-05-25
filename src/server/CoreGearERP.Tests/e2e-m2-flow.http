@@ -1,0 +1,293 @@
+# @no-log
+# CoreGearERP M2 End-to-End Flow Test
+# Tests the complete goods receipt flow from product creation to stock movement
+# Run against a clean database or a dedicated test tenant
+
+### Step 0 -- Reset test data
+DELETE {{HostAddress}}/test/reset
+Authorization: Bearer {{BearerToken}}
+
+> {%
+    client.test("Test data cleared", function() {
+        client.assert(response.status === 200, "Expected 200");
+    });
+%}
+
+####
+
+@HostAddress = http://localhost:5014
+@BearerToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIyMjIyMjIyMi0yMjIyLTIyMjItMjIyMi0yMjIyMjIyMjIyMjIiLCJlbWFpbCI6ImRldkBjb3JlZ2Vhci5sb2NhbCIsInRlbmFudF9pZCI6IjExMTExMTExLTExMTEtMTExMS0xMTExLTExMTExMTExMTExMSIsImV4cCI6MTc4MjIxOTA2MiwiaXNzIjoiY29yZWdlYXItYXBpIiwiYXVkIjoiY29yZWdlYXItY2xpZW50In0._QAy1UbI7lBi2NVG3DvFenB-PaMjNiEwmklzjSJyVrw
+
+### Step 1 -- Verify auth
+GET {{HostAddress}}/me
+Authorization: Bearer {{BearerToken}}
+
+> {%
+    client.test("Auth resolves user and tenant", function() {
+        client.assert(response.status === 200, "Expected 200");
+    });
+%}
+
+####
+
+### Step 2 -- Create product
+POST {{HostAddress}}/inventory/products
+Authorization: Bearer {{BearerToken}}
+Content-Type: application/json
+
+{
+  "code": "STEEL-E2E",
+  "name": "Steel Rod E2E Test",
+  "unitCode": "KG",
+  "description": "Product for E2E flow test"
+}
+
+> {%
+    client.test("Product created", function() {
+        client.assert(response.status === 201, "Expected 201");
+        client.global.set("productId", response.body.id);
+    });
+%}
+
+####
+
+### Step 3 -- Create warehouse
+POST {{HostAddress}}/inventory/warehouses
+Authorization: Bearer {{BearerToken}}
+Content-Type: application/json
+
+{
+  "code": "WH-E2E",
+  "name": "E2E Test Warehouse",
+  "location": "Berlin, Germany"
+}
+
+> {%
+    client.test("Warehouse created", function() {
+        client.assert(response.status === 201, "Expected 201");
+        client.global.set("warehouseId", response.body.id);
+    });
+%}
+
+####
+
+### Step 4 -- Create stock item
+POST {{HostAddress}}/inventory/stock-items
+Authorization: Bearer {{BearerToken}}
+Content-Type: application/json
+
+{
+  "productId": "{{productId}}",
+  "warehouseId": "{{warehouseId}}",
+  "unitCode": "KG"
+}
+
+> {%
+    client.test("StockItem created", function() {
+        client.assert(response.status === 201, "Expected 201");
+        client.global.set("stockItemId", response.body.id);
+    });
+%}
+
+####
+
+### Step 5 -- Verify stock items exist
+GET {{HostAddress}}/inventory/stock-items
+Authorization: Bearer {{BearerToken}}
+
+> {%
+    client.test("Stock items returned", function() {
+        client.assert(response.status === 200, "Expected 200");
+        client.assert(response.body.length > 0, "Expected at least one stock item");
+    });
+%}
+
+####
+
+### Step 6 -- Create supplier
+POST {{HostAddress}}/procurement/suppliers
+Authorization: Bearer {{BearerToken}}
+Content-Type: application/json
+
+{
+  "code": "SUP-E2E",
+  "name": "E2E Test Supplier GmbH",
+  "contactEmail": "e2e@test-supplier.de",
+  "contactPhone": "+49 30 00000000",
+  "address": "Teststraße 1, 10115 Berlin"
+}
+
+> {%
+    client.test("Supplier created", function() {
+        client.assert(response.status === 201, "Expected 201");
+        client.global.set("supplierId", response.body.id);
+    });
+%}
+
+####
+
+### Step 7 -- Create purchase order
+POST {{HostAddress}}/procurement/orders
+Authorization: Bearer {{BearerToken}}
+Content-Type: application/json
+
+{
+  "supplierId": "{{supplierId}}",
+  "notes": "E2E flow test order",
+  "lines": [
+    {
+      "productId": "{{productId}}",
+      "productCode": "STEEL-E2E",
+      "productName": "Steel Rod E2E Test",
+      "quantity": 100,
+      "unitCode": "KG",
+      "unitPrice": 2.50,
+      "currencyCode": "EUR"
+    }
+  ]
+}
+
+> {%
+    client.test("Purchase order created in Draft", function() {
+        client.assert(response.status === 201, "Expected 201");
+        client.global.set("orderId", response.body.id);
+    });
+%}
+
+####
+
+### Step 8 -- Confirm purchase order
+PUT {{HostAddress}}/procurement/orders/{{orderId}}/confirm
+Authorization: Bearer {{BearerToken}}
+Content-Type: application/json
+
+> {%
+    client.test("Purchase order confirmed", function() {
+        client.assert(response.status === 200, "Expected 200");
+    });
+%}
+
+####
+
+### Step 9 -- Get order with line ids
+GET {{HostAddress}}/procurement/orders/{{orderId}}
+Authorization: Bearer {{BearerToken}}
+
+> {%
+    client.test("Order status is Confirmed", function() {
+        client.assert(response.status === 200, "Expected 200");
+        client.assert(response.body.status === "Confirmed", "Expected Confirmed status");
+        client.assert(response.body.lines.length > 0, "Expected at least one line");
+        client.global.set("lineId", response.body.lines[0].id);
+    });
+%}
+
+####
+
+### Step 10 -- Receive partial goods (50 of 100)
+POST {{HostAddress}}/procurement/orders/{{orderId}}/receive
+Authorization: Bearer {{BearerToken}}
+Content-Type: application/json
+
+{
+  "purchaseOrderLineId": "{{lineId}}",
+  "warehouseId": "{{warehouseId}}",
+  "quantity": 50
+}
+
+> {%
+    client.test("Partial goods receipt accepted", function() {
+        client.assert(response.status === 200, "Expected 200");
+    });
+%}
+
+####
+
+### Step 11 -- Verify PO is PartiallyReceived
+GET {{HostAddress}}/procurement/orders/{{orderId}}
+Authorization: Bearer {{BearerToken}}
+
+> {%
+    client.test("Order status is PartiallyReceived", function() {
+        client.assert(response.status === 200, "Expected 200");
+        client.assert(response.body.status === "PartiallyReceived", "Expected PartiallyReceived");
+        client.assert(response.body.lines[0].quantityReceived === 50, "Expected 50 received");
+    });
+%}
+
+####
+
+### Step 12 -- Verify first stock movement created
+GET {{HostAddress}}/inventory/stock-items/{{stockItemId}}/movements
+Authorization: Bearer {{BearerToken}}
+
+> {%
+    client.test("Stock movement created for partial receipt", function() {
+        client.assert(response.status === 200, "Expected 200");
+        client.assert(response.body.length === 1, "Expected 1 movement");
+        client.assert(response.body[0].movementType === "GoodsReceipt", "Expected GoodsReceipt type");
+        client.assert(response.body[0].quantity === 50, "Expected quantity 50");
+    });
+%}
+
+####
+
+### Step 13 -- Receive remaining goods (50 of 100)
+POST {{HostAddress}}/procurement/orders/{{orderId}}/receive
+Authorization: Bearer {{BearerToken}}
+Content-Type: application/json
+
+{
+  "purchaseOrderLineId": "{{lineId}}",
+  "warehouseId": "{{warehouseId}}",
+  "quantity": 50
+}
+
+> {%
+    client.test("Final goods receipt accepted", function() {
+        client.assert(response.status === 200, "Expected 200");
+    });
+%}
+
+####
+
+### Step 14 -- Verify PO is fully Received
+GET {{HostAddress}}/procurement/orders/{{orderId}}
+Authorization: Bearer {{BearerToken}}
+
+> {%
+    client.test("Order status is Received", function() {
+        client.assert(response.status === 200, "Expected 200");
+        client.assert(response.body.status === "Received", "Expected Received");
+        client.assert(response.body.lines[0].quantityReceived === 100, "Expected 100 received");
+        client.assert(response.body.completedAt !== null, "Expected completedAt to be set");
+    });
+%}
+
+####
+
+### Step 15 -- Verify final stock level
+GET {{HostAddress}}/inventory/stock-items
+Authorization: Bearer {{BearerToken}}
+
+> {%
+    client.test("Stock items returned with updated quantity", function() {
+        client.assert(response.status === 200, "Expected 200");
+        client.assert(response.body.length > 0, "Expected at least one stock item");
+    });
+%}
+
+####
+
+### Step 16 -- Verify two stock movements exist
+GET {{HostAddress}}/inventory/stock-items/{{stockItemId}}/movements
+Authorization: Bearer {{BearerToken}}
+
+> {%
+    client.test("Two stock movements created", function() {
+        client.assert(response.status === 200, "Expected 200");
+        client.assert(response.body.length === 2, "Expected 2 movements");
+        client.assert(response.body[0].movementType === "GoodsReceipt", "Expected GoodsReceipt on first movement");
+        client.assert(response.body[1].movementType === "GoodsReceipt", "Expected GoodsReceipt on second movement");
+    });
+%}

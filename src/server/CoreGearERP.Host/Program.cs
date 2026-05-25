@@ -1,5 +1,6 @@
 using CoreGearERP.Host.Extensions;
 using CoreGearERP.Inventory.Extensions;
+using CoreGearERP.Procurement.Extensions;
 using Serilog;
 
 Log.Logger = new LoggerConfiguration()
@@ -19,7 +20,8 @@ try
 
     builder.Services
         .AddHost(builder.Configuration)
-        .AddInventoryModule(builder.Configuration);
+        .AddInventoryModule(builder.Configuration)
+        .AddProcurementModule(builder.Configuration);
 
     var app = builder.Build();
 
@@ -27,8 +29,10 @@ try
 
     app.MapGet("/", () => "CoreGearERP");
     app.MapDevTokenEndpoint();
+    app.MapTestEndpoints();
     app.MapInventoryEndpoints();
-    
+    app.MapProcurementEndpoints();
+
     var lifetime = app.Services.GetRequiredService<IHostApplicationLifetime>();
     lifetime.ApplicationStarted.Register(() =>
     {
@@ -36,7 +40,8 @@ try
         Log.Information("CoreGearERP running on {Environment} | Listening on {Urls}",
             app.Environment.EnvironmentName,
             urls);
-    });    app.Run();
+    });
+    app.Run();
 }
 catch (Exception ex)
 {

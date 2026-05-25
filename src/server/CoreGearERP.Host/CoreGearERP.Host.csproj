@@ -33,6 +33,7 @@
     <ItemGroup>
       <ProjectReference Include="..\CoreGearERP.Common\CoreGearERP.Common.csproj" />
       <ProjectReference Include="..\CoreGearERP.Inventory\CoreGearERP.Inventory.csproj" />
+      <ProjectReference Include="..\CoreGearERP.Procurement\CoreGearERP.Procurement.csproj" />
     </ItemGroup>
 
 </Project>

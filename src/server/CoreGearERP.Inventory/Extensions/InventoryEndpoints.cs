@@ -1,9 +1,8 @@
 using CoreGearERP.Common.Application.Interfaces;
-using CoreGearERP.Inventory.Application.ProductEndpoint;
-using CoreGearERP.Inventory.Application.Queries.Product;
-using CoreGearERP.Inventory.Application.StockItemEndpoint;
-using CoreGearERP.Inventory.Application.StockMovementEndpoint;
-using CoreGearERP.Inventory.Application.WarehouseEndpoint;
+using CoreGearERP.Inventory.Application.Products;
+using CoreGearERP.Inventory.Application.StockItems;
+using CoreGearERP.Inventory.Application.StockMovements;
+using CoreGearERP.Inventory.Application.Warehouses;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
