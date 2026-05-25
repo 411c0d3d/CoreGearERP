@@ -32,8 +32,11 @@
 
     <ItemGroup>
       <ProjectReference Include="..\CoreGearERP.Common\CoreGearERP.Common.csproj" />
+      <ProjectReference Include="..\CoreGearERP.Finance\CoreGearERP.Finance.csproj" />
       <ProjectReference Include="..\CoreGearERP.Inventory\CoreGearERP.Inventory.csproj" />
       <ProjectReference Include="..\CoreGearERP.Procurement\CoreGearERP.Procurement.csproj" />
+      <ProjectReference Include="..\CoreGearERP.Production\CoreGearERP.Production.csproj" />
+      <ProjectReference Include="..\CoreGearERP.Sales\CoreGearERP.Sales.csproj" />
     </ItemGroup>
 
 </Project>

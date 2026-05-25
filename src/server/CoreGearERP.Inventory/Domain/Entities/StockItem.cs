@@ -11,7 +11,14 @@ namespace CoreGearERP.Inventory.Domain.Entities;
 public class StockItem : BaseEntity
 {
     public Guid ProductId { get; private set; }
+    
     public Guid WarehouseId { get; private set; }
+
+    public string ProductCode { get; private set; } = string.Empty;
+
+    public string ProductName { get; private set; } = string.Empty;
+    
+    public string WarehouseCode { get; private set; } = string.Empty;
 
     /// <summary>
     /// Current quantity on hand. Updated by applying StockMovements.
@@ -36,7 +43,10 @@ public class StockItem : BaseEntity
     /// </summary>
     public static StockItem Create(
         Guid productId,
+        string productCode,
+        string productName,
         Guid warehouseId,
+        string warehouseCode,
         string unitCode,
         Guid tenantId,
         Guid createdBy)
@@ -54,7 +64,10 @@ public class StockItem : BaseEntity
         var item = new StockItem
         {
             ProductId         = productId,
+            ProductCode       = productCode.Trim().ToUpperInvariant(),
+            ProductName       = productName.Trim(),
             WarehouseId       = warehouseId,
+            WarehouseCode     = warehouseCode.Trim().ToUpperInvariant(),
             QuantityOnHand    = Quantity.Zero(unitCode),
             QuantityReserved  = Quantity.Zero(unitCode)
         };

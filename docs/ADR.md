@@ -16,6 +16,12 @@ CoreGearERP/
   README.md
   appsettings.example.json
   .gitignore
+  .dockerignore
+  compose.yaml
+  docs/
+    ADR.md
+    DB migrations.md
+    Domain model.md
   src/
     server/
       CoreGearERP.Host/
@@ -28,18 +34,10 @@ CoreGearERP/
     client/
       coregear-ui/              -- Angular SPA, scaffolded at M6
   tests/
-    CoreGearERP.Inventory.Tests/
-    CoreGearERP.Procurement.Tests/
-    CoreGearERP.Production.Tests/
-    CoreGearERP.Sales.Tests/
-    CoreGearERP.Finance.Tests/
-  docs/
-    ADR.md
-    DB migration.md
-    Domain model.md
+    CoreGearERP.Tests/          -- E2E HTTP flow tests
 ```
 
-Note: `client/` and remaining test projects do not exist yet. They are shown here for clarity and will be added at their respective milestones.
+Note: `client/` does not exist yet. Separate xUnit test projects per module will be added at M5 when integration tests are written with Testcontainers.
 
 **Why:** One repo means one PR for changes that touch both backend and frontend. No cross-repo coordination overhead. Simpler for a single developer or small team. At M7 when Inventory is extracted it stays in the same repo as a second server project -- still one repo, now two deployables.
 
@@ -138,20 +136,86 @@ CoreGearERP.Inventory/
 
 ### Folder Structure Per Module
 
+Application layer uses vertical slice by entity, not flat Commands/Queries folders. Each entity gets its own folder containing all commands, queries, and handlers for that entity. This keeps related code together and makes the module easier to navigate as it grows.
+
 ```
 CoreGearERP.{Module}/
   Domain/
     Entities/         -- domain entities, inherit from BaseEntity
     Enums/            -- module-specific status values and enumerations
   Application/
-    Commands/         -- one file per write use case, mutates state
-    Queries/          -- one file per read use case, never mutates
+    {Entity}/         -- one folder per entity, contains all commands, queries, handlers
+      Create{Entity}/
+        Create{Entity}Command.cs
+        Create{Entity}CommandHandler.cs
+        Create{Entity}Validator.cs
+      Get{Entities}/
+        Get{Entities}Query.cs
+        Get{Entities}QueryHandler.cs
     Contracts/        -- interfaces this module exposes to other modules
   Infrastructure/
     Persistence/
       Configurations/ -- EF Core entity type configurations, one per entity
       Migrations/     -- EF Core generated migrations, never edit manually
     gRPC/             -- gRPC service implementation (Inventory and Production only)
+  Extensions/
+    {Module}Endpoints.cs   -- HTTP endpoint registrations
+    {Module}Extensions.cs  -- DI service registrations
+```
+
+### Example -- Inventory Module Actual Structure
+
+```
+CoreGearERP.Inventory/
+  Application/
+    Contracts/
+      InventoryCommandService.cs   -- implements IInventoryCommandService
+      InventoryQueryService.cs     -- implements IInventoryQueryService
+    Products/
+      CreateProduct/
+        CreateProductCommand.cs
+        CreateProductCommandHandler.cs
+        CreateProductValidator.cs
+      GetProducts/
+        GetProductsQuery.cs
+        GetProductsQueryHandler.cs
+    StockItems/
+      CreateStockItem/
+        CreateStockItemCommand.cs
+        CreateStockItemCommandHandler.cs
+        CreateStockItemValidator.cs
+      GetStockItems/
+        GetStockItemsQuery.cs
+        GetStockItemsQueryHandler.cs
+      GetStockMovementsQuery.cs
+      GetStockMovementsQueryHandler.cs
+    Warehouses/
+      CreateWarehouse/
+      GetWarehouses/
+  Domain/
+    Entities/
+      Product.cs
+      StockItem.cs
+      StockMovement.cs
+      Warehouse.cs
+    Enums/
+      ProductStatus.cs
+      StockMovementType.cs
+      WarehouseStatus.cs
+  Infrastructure/
+    Persistence/
+      Configurations/
+        ProductConfiguration.cs
+        StockItemConfiguration.cs
+        StockMovementConfiguration.cs
+        WarehouseConfiguration.cs
+      Migrations/
+      InventoryDbContext.cs
+      InventoryDbContextFactory.cs
+    gRPC/             -- populated at M4
+  Extensions/
+    InventoryEndpoints.cs
+    InventoryExtensions.cs
 ```
 
 ### CoreGearERP.Common Structure
@@ -200,7 +264,29 @@ CoreGearERP.Host/
 
 **Why:** Protobuf contracts are typed and versioned. Breaking changes are caught at compile time. REST with JSON does not give you this. When Inventory is extracted at M7 the contracts remain unchanged -- only the transport changes from in-process to network.
 
+**Current state (M2-M3):** Cross-module synchronous calls are implemented in-process via service interfaces defined in `CoreGearERP.Common`. `IInventoryCommandService` and `IInventoryQueryService` are implemented in `CoreGearERP.Inventory` and resolved through DI. No direct DbContext sharing across modules. The interfaces are already defined as if they were remote -- no parameters reference EF Core entities or navigation properties.
+
+**At M4:** The in-process implementations are replaced with gRPC clients. The interface contracts in Common remain unchanged. Only the registered implementation in DI changes -- from `InventoryCommandService` (in-process) to `InventoryGrpcClient` (over the wire). Callers in Procurement, Production, and Sales do not change at all.
+
 **Tradeoff:** More setup than REST. Not browser-friendly so it is internal only. REST remains the external API for Angular.
+
+**Warehouse assignment strategy:**
+
+All cross-module inventory operations support two modes -- explicit warehouse and auto-find fallback. `WarehouseId` is optional on confirmation and shipment commands. If provided, that warehouse is used and fails fast if stock is insufficient. If not provided, the system finds the warehouse with the most available stock via `IInventoryQueryService.FindBestWarehouseAsync`.
+
+This gives callers three behaviours:
+
+| Caller provides | Behaviour |
+|---|---|
+| Explicit `WarehouseId` | Use exactly that warehouse, fail if insufficient |
+| No `WarehouseId` | Auto-find warehouse with most available stock |
+| Explicit but insufficient | Fail with clear error, no silent fallback |
+
+The original approach of requiring explicit warehouses on all operations was correct for reasoning about the system. The fallback was added to handle the UX reality that in systems with many warehouses the caller cannot always know upfront where stock is held.
+
+Production confirmation requires explicit `ComponentWarehouses` per BOM line with optional fallback per line. Sales confirmation and shipment use optional `WarehouseId` with auto-find fallback.
+
+**Tradeoff:** The auto-find heuristic -- most available stock -- is simple and predictable but not always optimal. More sophisticated allocation strategies (FIFO, nearest location, zone-based) can be introduced via `IInventoryQueryService` without changing the command interface.
 
 ---
 
@@ -291,13 +377,17 @@ CoreGearERP.Host/
 - A production order cannot be started if status is not Confirmed
 - Completed production orders are immutable
 - Component consumption is recorded at actual not planned
+- Confirmation requires explicit warehouse assignment per component -- the caller specifies where each component is sourced from, the system does not auto-resolve warehouses
+- Completion requires explicit warehouse assignment per component and a finished goods warehouse
 
 **Sales**
 - A sales order cannot be confirmed without a stock reservation per line
+- Confirmation requires an explicit warehouse -- the caller specifies which warehouse fulfils the order
 - Cancelling an order releases all reservations immediately
 - A customer must be active to place an order
-- Shipment quantity cannot exceed ordered quantity per line
+- Shipment quantity per line cannot exceed ordered quantity
 - An order with a partial shipment remains open until fully shipped or explicitly cancelled
+- Shipment requires an explicit warehouse matching the one used for reservation
 
 **Finance**
 - Every cost entry must reference a source document (production order, goods receipt, invoice)
@@ -340,6 +430,22 @@ Every entity with a human-facing identifier gets a separate business key alongsi
 Id                    uuid      PRIMARY KEY
 PurchaseOrderNumber   varchar   UNIQUE per tenant
 ```
+
+### Denormalized Reference Data
+
+Entities that are frequently queried with display information from related entities carry denormalized copies of that data. This avoids JOIN queries on the hot read path.
+
+Examples applied throughout the codebase:
+
+- `PurchaseOrder` carries `SupplierName` -- no JOIN to Suppliers on every order list query
+- `SalesOrder` carries `CustomerName` -- same reason
+- `StockItem` carries `ProductCode`, `ProductName`, `WarehouseCode` -- stock level dashboard never needs a JOIN
+- `PurchaseOrderLine` carries `ProductCode`, `ProductName` -- line display does not JOIN to Inventory
+- `BillOfMaterialsLine` carries `ComponentProductCode`, `ComponentProductName` -- same pattern
+
+The denormalized values are set at creation and treated as read-only snapshots. They reflect the state at the time the record was created. If a product name changes, existing order lines keep the original name which is correct -- historical records should not silently change.
+
+This is the same pattern used in event sourcing event payloads and in read models. The difference is these are on the write model itself, which is acceptable when the data is stable and the query benefit is clear.
 
 ### Money
 
@@ -385,7 +491,37 @@ Real patterns held back until the code actually needs them:
 
 ---
 
-## ADR-009: Authentication and Identity Strategy
+## ADR-009: Custom Dispatcher Replacing MediatR
+
+**Status:** Accepted
+
+**Decision:** MediatR was removed and replaced with a custom dispatcher built in `CoreGearERP.Host`. The interfaces (`ICommand`, `IQuery`, `ICommandHandler`, `IQueryHandler`, `IDispatcher`, `IPipelineBehavior`) live in `CoreGearERP.Common`. The implementation lives in `CoreGearERP.Host/Infrastructure/Dispatcher.cs`.
+
+**Why MediatR was removed:**
+
+MediatR 12 introduced a commercial license requirement for production use. For a learning project this is an unnecessary cost. Beyond licensing, MediatR adds an abstraction layer that can be replaced with a small amount of code that we own and understand completely.
+
+**What the custom dispatcher does:**
+
+- Resolves command and query handlers from DI using reflection
+- Runs pipeline behaviors in registration order around every handler invocation
+- Catches all exceptions internally and wraps them in `Result<T>` -- exceptions never propagate through the middleware stack
+- Logs warnings for `DomainException` and `NotFoundException`, errors for unexpected exceptions
+
+**Pipeline behaviors registered:**
+
+1. `LoggingBehavior` -- logs every command and query with execution time, warns on slow handlers (over 500ms)
+2. `ValidationBehavior` -- runs FluentValidation validators, throws `DomainException` on failure which maps to 400
+
+**Result pattern:**
+
+The dispatcher returns `Result<TResult>` for every command and query. Endpoints check `result.IsSuccess` and return the appropriate HTTP status. This means exceptions never reach Serilog's request logging middleware, which was causing 500 to be logged for expected domain errors.
+
+**Tradeoff:** The custom dispatcher uses reflection for handler resolution which is slightly slower than MediatR's compiled delegates. For an ERP with moderate request volume this is not a concern. The patterns learned transfer directly to MediatR knowledge since the concepts are identical.
+
+---
+
+## ADR-010: Authentication and Identity Strategy
 
 **Status:** Accepted -- Production target. Dev token endpoint used during local development only.
 
