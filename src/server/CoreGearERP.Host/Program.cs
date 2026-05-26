@@ -1,5 +1,6 @@
 using CoreGearERP.Host.Extensions;
 using CoreGearERP.Inventory.Extensions;
+using CoreGearERP.Inventory.Infrastructure.gRPC;
 using CoreGearERP.Procurement.Extensions;
 using CoreGearERP.Production.Extensions;
 using CoreGearERP.Sales.Extensions;
@@ -31,6 +32,9 @@ try
 
     app.UseHost();
 
+    app.MapGrpcService<InventoryCommandGrpcService>();
+    app.MapGrpcService<InventoryQueryGrpcService>();
+    
     app.MapGet("/", () => "CoreGearERP");
     app.MapDevTokenEndpoint();
     app.MapTestEndpoints();

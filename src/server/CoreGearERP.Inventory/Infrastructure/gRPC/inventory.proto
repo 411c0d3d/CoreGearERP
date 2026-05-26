@@ -1,0 +1,78 @@
+syntax = "proto3";
+
+option csharp_namespace = "CoreGearERP.Inventory.gRPC";
+
+package inventory;
+
+service InventoryCommands {
+  rpc AddStock (AddStockRequest) returns (EmptyResponse);
+  rpc AddStockFromProduction (AddStockRequest) returns (EmptyResponse);
+  rpc IssueStock (IssueStockRequest) returns (EmptyResponse);
+  rpc ReserveStockInWarehouse (ReserveStockRequest) returns (EmptyResponse);
+  rpc ReleaseReservation (ReserveStockRequest) returns (EmptyResponse);
+  rpc ShipStock (AddStockRequest) returns (EmptyResponse);
+}
+
+service InventoryQueries {
+  rpc GetAvailableStock (GetAvailableStockRequest) returns (GetAvailableStockResponse);
+  rpc GetAvailableStockInWarehouse (GetStockInWarehouseRequest) returns (GetAvailableStockResponse);
+  rpc FindBestWarehouse (FindBestWarehouseRequest) returns (FindBestWarehouseResponse);
+}
+
+message GetAvailableStockRequest {
+  string product_id = 1;
+  string tenant_id = 2;
+}
+
+message GetAvailableStockResponse {
+  double quantity = 1;
+}
+
+message AddStockRequest {
+  string product_id = 1;
+  string warehouse_id = 2;
+  double quantity = 3;
+  string unit_code = 4;
+  string reference_id = 5;
+  string reference_number = 6;
+  string tenant_id = 7;
+  string user_id = 8;
+}
+
+message IssueStockRequest {
+  string product_id = 1;
+  string warehouse_id = 2;
+  double quantity = 3;
+  string unit_code = 4;
+  string reference_id = 5;
+  string reference_number = 6;
+  string tenant_id = 7;
+  string user_id = 8;
+}
+
+message ReserveStockRequest {
+  string product_id = 1;
+  string warehouse_id = 2;
+  double quantity = 3;
+  string unit_code = 4;
+  string tenant_id = 5;
+  string user_id = 6;
+}
+
+message GetStockInWarehouseRequest {
+  string product_id = 1;
+  string warehouse_id = 2;
+  string tenant_id = 3;
+}
+
+message FindBestWarehouseRequest {
+  string product_id = 1;
+  double quantity = 2;
+  string tenant_id = 3;
+}
+
+message FindBestWarehouseResponse {
+  string warehouse_id = 1;
+}
+
+message EmptyResponse {}
