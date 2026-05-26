@@ -3,10 +3,12 @@ using CoreGearERP.Common.Application.Interfaces;
 using CoreGearERP.Host.Infrastructure;
 using CoreGearERP.Host.Infrastructure.Behaviors;
 using CoreGearERP.Host.Middleware;
+using CoreGearERP.Inventory.Infrastructure.gRPC;
 using FluentValidation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Serilog;
+using CoreGearERP.Inventory.gRPC;
 
 namespace CoreGearERP.Host.Extensions;
 
@@ -60,6 +62,23 @@ public static class HostExtensions
         services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
         services.AddValidatorsFromAssemblies(AppDomain.CurrentDomain.GetAssemblies());
 
+        // gRPC clients for Inventory module. The address is read from configuration with a fallback to localhost.
+        services.AddGrpc();
+        services.AddGrpcClient<InventoryCommands.InventoryCommandsClient>(options =>
+        {
+            options.Address = new Uri(configuration["Grpc:InventoryUrl"]
+                                      ?? "http://localhost:5015");
+        });
+
+        services.AddGrpcClient<InventoryQueries.InventoryQueriesClient>(options =>
+        {
+            options.Address = new Uri(configuration["Grpc:InventoryUrl"]
+                                      ?? "http://localhost:5015");
+        });
+
+        services.AddScoped<IInventoryCommandService, InventoryCommandGrpcClient>();
+        services.AddScoped<IInventoryQueryService, InventoryQueryGrpcClient>();
+        
         return services;
     }
 

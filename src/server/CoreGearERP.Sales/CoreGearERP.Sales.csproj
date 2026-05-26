@@ -19,12 +19,21 @@
 
     <ItemGroup>
         <PackageReference Include="FluentValidation" Version="12.1.1"/>
+        <PackageReference Include="Google.Protobuf" Version="3.35.0" />
+        <PackageReference Include="Grpc.AspNetCore" Version="2.80.0" />
+        <PackageReference Include="Grpc.Tools" Version="2.80.0">
+          <PrivateAssets>all</PrivateAssets>
+          <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
         <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.1"/>
     </ItemGroup>
-
-
+    
     <ItemGroup>
         <ProjectReference Include="..\CoreGearERP.Common\CoreGearERP.Common.csproj"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <Protobuf Include="..\CoreGearERP.Inventory\Infrastructure\gRPC\inventory.proto" GrpcServices="None" Link="Infrastructure\gRPC\inventory.proto" />
     </ItemGroup>
     
 </Project>

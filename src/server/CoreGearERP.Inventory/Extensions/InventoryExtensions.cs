@@ -1,5 +1,6 @@
 using CoreGearERP.Common.Application.Interfaces;
 using CoreGearERP.Inventory.Application.Contracts;
+using CoreGearERP.Inventory.Infrastructure.gRPC;
 using CoreGearERP.Inventory.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -24,8 +25,10 @@ public static class InventoryExtensions
             options.UseNpgsql(
                 configuration.GetConnectionString("CoreGearERP") + ";Search Path=inventory"));
 
-        services.AddScoped<IInventoryCommandService, InventoryCommandService>();
-        services.AddScoped<IInventoryQueryService, InventoryQueryService>();
+        services.AddScoped<InventoryCommandService>();
+        services.AddScoped<InventoryQueryService>();
+        services.AddScoped<InventoryCommandGrpcService>();
+        services.AddScoped<InventoryQueryGrpcService>();
 
         // Register all command and query handlers in this module.
         var assembly = typeof(InventoryExtensions).Assembly;

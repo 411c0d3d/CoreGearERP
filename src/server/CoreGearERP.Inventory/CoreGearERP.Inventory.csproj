@@ -7,27 +7,36 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <FrameworkReference Include="Microsoft.AspNetCore.App" />
+        <FrameworkReference Include="Microsoft.AspNetCore.App"/>
     </ItemGroup>
 
     <ItemGroup>
-        <Folder Include="Domain\Entities\" />
-        <Folder Include="Domain\Enums\" />
+        <Folder Include="Domain\Entities\"/>
+        <Folder Include="Domain\Enums\"/>
         <Folder Include="Domain\Exceptions\"/>
         <Folder Include="Domain\ValueObjects\"/>
         <Folder Include="Extensions\"/>
-        <Folder Include="Infrastructure\gRPC\"/>
-        <Folder Include="Infrastructure\Persistence\Configurations\" />
+        <Folder Include="Infrastructure\Persistence\Configurations\"/>
         <Folder Include="Infrastructure\Persistence\Migrations\"/>
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="FluentValidation" Version="12.1.1" />
+        <PackageReference Include="FluentValidation" Version="12.1.1"/>
+        <PackageReference Include="Google.Protobuf" Version="3.35.0"/>
+        <PackageReference Include="Grpc.AspNetCore" Version="2.80.0"/>
+        <PackageReference Include="Grpc.Tools" Version="2.80.0">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
         <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.1"/>
     </ItemGroup>
 
     <ItemGroup>
         <ProjectReference Include="..\CoreGearERP.Common\CoreGearERP.Common.csproj"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <Protobuf Include="Infrastructure\gRPC\inventory.proto" GrpcServices="Both" />
     </ItemGroup>
 
 </Project>
