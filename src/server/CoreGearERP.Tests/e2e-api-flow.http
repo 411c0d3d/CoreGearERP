@@ -716,3 +716,74 @@ Authorization: Bearer {{BearerToken}}
 
 GET {{HostAddress}}/inventory/stock-items
 Authorization: Bearer {{BearerToken}}
+
+####
+# @no-log
+####
+
+### Step 29 -- Wait for outbox delivery then verify Finance cost entry for goods receipt
+GET {{HostAddress}}/finance/cost-entries/by-source/{{poId}}
+Authorization: Bearer {{BearerToken}}
+
+> {%
+    client.test("Finance cost entry created for goods receipt", function() {
+        client.assert(response.status === 200, "Expected 200");
+        client.assert(response.body.length > 0, "Expected at least one cost entry");
+        var entry = response.body[0];
+        client.assert(entry.sourceType === "GoodsReceipt", "Expected GoodsReceipt source type");
+        client.assert(entry.isPendingCosting === false, "Expected costing to be resolved");
+        client.assert(entry.amount > 0, "Expected positive amount");
+    });
+%}
+
+####
+# @no-log
+####
+
+### Step 30 -- Verify Finance cost entry for production order
+GET {{HostAddress}}/finance/cost-entries/by-source/{{productionOrderId}}
+Authorization: Bearer {{BearerToken}}
+
+> {%
+    client.test("Finance cost entry created for production order", function() {
+        client.assert(response.status === 200, "Expected 200");
+        client.assert(response.body.length > 0, "Expected at least one cost entry");
+        var entry = response.body[0];
+        client.assert(entry.sourceType === "ProductionOrder", "Expected ProductionOrder source type");
+        client.assert(entry.isPendingCosting === true, "Expected pending costing flag");
+    });
+%}
+
+####
+# @no-log
+####
+
+### Step 31 -- Verify Finance cost entry for shipment
+GET {{HostAddress}}/finance/cost-entries/by-source/{{shipmentId}}
+Authorization: Bearer {{BearerToken}}
+
+> {%
+    client.test("Finance cost entry created for shipment", function() {
+        client.assert(response.status === 200, "Expected 200");
+        client.assert(response.body.length > 0, "Expected at least one cost entry");
+        var entry = response.body[0];
+        client.assert(entry.sourceType === "Shipment", "Expected Shipment source type");
+        client.assert(entry.isPendingCosting === false, "Expected costing to be resolved");
+        client.assert(entry.amount > 0, "Expected positive amount");
+    });
+%}
+
+####
+# @no-log
+####
+
+### Step 32 -- Verify all Finance cost entries summary
+GET {{HostAddress}}/finance/cost-entries
+Authorization: Bearer {{BearerToken}}
+
+> {%
+    client.test("Three Finance cost entries exist", function() {
+        client.assert(response.status === 200, "Expected 200");
+        client.assert(response.body.length === 3, "Expected 3 cost entries total");
+    });
+%}

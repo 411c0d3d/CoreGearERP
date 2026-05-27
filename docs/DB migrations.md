@@ -1,10 +1,84 @@
-# CoreGearERP -- EF Core and PostgreSQL Migration Guide
+# CoreGearERP -- Infrastructure and Migration Guide
 
-This guide covers everything you need to know about how EF Core migrations work in CoreGearERP, why certain decisions were made, and how to run migrations correctly for each module.
+This guide covers local infrastructure setup via Docker, EF Core migrations, and how to verify the database state.
 
 ---
 
-## How It All Fits Together
+## Local Infrastructure
+
+CoreGearERP requires two Docker containers for local development -- PostgreSQL and RabbitMQ. Both must be running before starting the application.
+
+---
+
+## PostgreSQL via Docker
+
+### Start the Container
+
+```bash
+docker run -d \
+  --name coregear-postgres \
+  -e POSTGRES_USER=coregear \
+  -e POSTGRES_PASSWORD=coregear123 \
+  -e POSTGRES_DB=coregearerp \
+  -p 5432:5432 \
+  postgres:16-alpine
+```
+
+### Stop and Start Again Later
+
+```bash
+docker stop coregear-postgres
+docker start coregear-postgres
+```
+
+### Verify It Is Running
+
+```bash
+docker ps
+```
+
+You should see `coregear-postgres` in the list with port `5432` mapped.
+
+---
+
+## RabbitMQ via Docker
+
+### Start the Container
+
+```bash
+docker run -d \
+  --name coregear-rabbitmq \
+  -p 5672:5672 \
+  -p 15672:15672 \
+  rabbitmq:3-management
+```
+
+Port `5672` is the AMQP port used by MassTransit. Port `15672` is the management UI.
+
+### Stop and Start Again Later
+
+```bash
+docker stop coregear-rabbitmq
+docker start coregear-rabbitmq
+```
+
+### Management UI
+
+Open `http://localhost:15672` in a browser. Default credentials: `guest` / `guest`.
+
+The management UI shows all exchanges, queues, bindings, and dead letter queues. Use it to monitor message flow and inspect failed messages during development.
+
+### Verify It Is Running
+
+```bash
+docker ps
+```
+
+You should see `coregear-rabbitmq` in the list with ports `5672` and `15672` mapped.
+
+---
+
+## How the Database Fits Together
 
 CoreGearERP uses one PostgreSQL database with a separate schema per module. Each module owns its schema completely -- no cross-schema joins in application code.
 
@@ -39,42 +113,29 @@ dotnet ef --version
 
 ---
 
-## PostgreSQL via Docker
+## Connection String
 
-### Start the Container
+All modules share a single connection string key `CoreGearERP` in `appsettings.json`. The schema is set per module in the DbContext factory and DbContext configuration -- not in the connection string.
 
-```bash
-docker run -d --name coregear-postgres -e POSTGRES_USER=coregear -e POSTGRES_PASSWORD=coregear123 -e POSTGRES_DB=coregearerp -p 5432:5432 postgres:16-alpine
-```
-
-### Verify It Is Running
-
-```bash
-docker ps
-```
-
-You should see `coregear-postgres` in the list with port `5432` mapped.
-
-### Stop and Start Again Later
-
-```bash
-docker stop coregear-postgres
-docker start coregear-postgres
+```json
+"ConnectionStrings": {
+  "CoreGearERP": "Host=localhost;Port=5432;Database=coregearerp;Username=coregear;Password=coregear123"
+}
 ```
 
 ---
 
-## Connection Strings
+## RabbitMQ Configuration
 
-Each module gets its own connection string in `appsettings.json`. The `Search Path` tells PostgreSQL which schema to use by default for that connection.
+MassTransit connection settings in `appsettings.json`:
 
 ```json
-"ConnectionStrings": {
-  "Inventory":   "Host=localhost;Port=5432;Database=coregearerp;Username=coregear;Password=coregear123;Search Path=inventory",
-  "Procurement": "Host=localhost;Port=5432;Database=coregearerp;Username=coregear;Password=coregear123;Search Path=procurement",
-  "Production":  "Host=localhost;Port=5432;Database=coregearerp;Username=coregear;Password=coregear123;Search Path=production",
-  "Sales":       "Host=localhost;Port=5432;Database=coregearerp;Username=coregear;Password=coregear123;Search Path=sales",
-  "Finance":     "Host=localhost;Port=5432;Database=coregearerp;Username=coregear;Password=coregear123;Search Path=finance"
+"RabbitMq": {
+  "Host": "localhost",
+  "Port": 5672,
+  "Username": "guest",
+  "Password": "guest",
+  "VirtualHost": "/"
 }
 ```
 
@@ -88,7 +149,7 @@ EF Core provides a solution -- `IDesignTimeDbContextFactory<T>`. If EF Core find
 
 ### The Second Problem -- Schema Does Not Exist Yet
 
-When EF Core runs the first migration it tries to create the `__EFMigrationsHistory` table. In PostgreSQL this table goes into the schema specified by `Search Path`. But if the schema does not exist yet, PostgreSQL throws:
+When EF Core runs the first migration it tries to create the `__EFMigrationsHistory` table. In PostgreSQL this table goes into the schema specified by the connection. But if the schema does not exist yet, PostgreSQL throws:
 
 ```
 3F000: no schema has been selected to create in
@@ -162,12 +223,7 @@ var tenantId = _currentTenant?.TenantId ?? Guid.Empty;
 modelBuilder.ApplyGlobalFilters<BaseEntity>(e => e.TenantId == tenantId && !e.IsDeleted);
 ```
 
-EF Core rejects this because the expression references a captured local variable it cannot evaluate at query build time. The error is:
-
-```
-The filter expression is invalid. The expression must accept a single parameter
-of type 'Product' and return 'bool'.
-```
+EF Core rejects this because the expression references a captured local variable it cannot evaluate at query build time.
 
 ### The Fix -- Apply Filters Per Entity Configuration
 
@@ -175,12 +231,10 @@ Instead of a global filter, apply the query filter directly in each entity's `IE
 
 ```csharp
 // In ProductConfiguration.cs
-// Soft delete filter -- excludes deleted records from all queries automatically.
-// Tenant filtering is handled at the query level in command and query handlers.
 builder.HasQueryFilter(p => !p.IsDeleted);
 ```
 
-Tenant filtering is enforced at the handler level using `ICurrentTenant` injected into the handler. This keeps the EF Core configuration simple and avoids design time issues entirely.
+Tenant filtering is enforced at the handler level using `ICurrentTenant` injected into the handler.
 
 ---
 
@@ -208,65 +262,8 @@ public class InventoryDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
-
-        // All tables for this module go into the inventory schema.
         modelBuilder.HasDefaultSchema("inventory");
-
-        // Scans this assembly for all IEntityTypeConfiguration implementations
-        // and applies them automatically. One configuration file per entity.
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(InventoryDbContext).Assembly);
-    }
-}
-```
-
----
-
-## Entity Configuration
-
-Each entity gets its own `IEntityTypeConfiguration` file in `Infrastructure/Persistence/Configurations/`. This keeps mapping logic out of the DbContext and makes each entity's schema explicit.
-
-```csharp
-using CoreGearERP.Inventory.Domain.Entities;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata.Builders;
-
-namespace CoreGearERP.Inventory.Infrastructure.Persistence.Configurations;
-
-/// <summary>EF Core mapping configuration for the Product entity.</summary>
-public class ProductConfiguration : IEntityTypeConfiguration<Product>
-{
-    public void Configure(EntityTypeBuilder<Product> builder)
-    {
-        builder.ToTable("products");
-
-        builder.HasKey(p => p.Id);
-
-        builder.Property(p => p.Id).HasColumnName("id");
-        builder.Property(p => p.TenantId).HasColumnName("tenant_id").IsRequired();
-        builder.Property(p => p.Code).HasColumnName("code").HasMaxLength(50).IsRequired();
-        builder.Property(p => p.Name).HasColumnName("name").HasMaxLength(200).IsRequired();
-        builder.Property(p => p.Description).HasColumnName("description").HasMaxLength(1000);
-        builder.Property(p => p.UnitCode).HasColumnName("unit_code").HasMaxLength(10).IsRequired();
-        builder.Property(p => p.Status).HasColumnName("status").HasMaxLength(50).IsRequired();
-        builder.Property(p => p.IsDeleted).HasColumnName("is_deleted").IsRequired();
-        builder.Property(p => p.CreatedAt).HasColumnName("created_at").IsRequired();
-        builder.Property(p => p.CreatedBy).HasColumnName("created_by").IsRequired();
-        builder.Property(p => p.ModifiedAt).HasColumnName("modified_at").IsRequired();
-        builder.Property(p => p.ModifiedBy).HasColumnName("modified_by").IsRequired();
-        builder.Property(p => p.ConfirmedAt).HasColumnName("confirmed_at");
-        builder.Property(p => p.CompletedAt).HasColumnName("completed_at");
-        builder.Property(p => p.CancelledAt).HasColumnName("cancelled_at");
-
-        // Code is unique per tenant, not globally.
-        builder.HasIndex(p => new { p.TenantId, p.Code })
-            .IsUnique()
-            .HasDatabaseName("ix_products_tenant_code");
-
-        builder.HasIndex(p => p.TenantId)
-            .HasDatabaseName("ix_products_tenant_id");
-
-        // Soft delete filter applied per entity.
-        builder.HasQueryFilter(p => !p.IsDeleted);
     }
 }
 ```
@@ -380,3 +377,4 @@ docker exec -it coregear-postgres psql -U coregear -d coregearerp -c "\dt financ
 - Always use `--output-dir` so migrations land in the correct module folder
 - Each module has its own factory -- copy the pattern exactly, change only the schema name and DbContext type
 - Replace `<MigrationName>` with a descriptive name -- `InitialInventory`, `AddWarehouseEntity`, `AddSupplierContactColumn`
+- Both Docker containers must be running before starting the application

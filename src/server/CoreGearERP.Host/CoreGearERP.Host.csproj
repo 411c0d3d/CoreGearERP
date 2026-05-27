@@ -11,6 +11,9 @@
         <PackageReference Include="FluentValidation" Version="12.1.1" />
         <PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="12.1.1" />
         <PackageReference Include="Grpc.AspNetCore" Version="2.80.0" />
+        <PackageReference Include="MassTransit" Version="8.5.9" />
+        <PackageReference Include="MassTransit.EntityFrameworkCore" Version="8.5.9" />
+        <PackageReference Include="MassTransit.RabbitMQ" Version="8.5.9" />
         <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.8" />
         <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.0"/>
         <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.8" />
@@ -35,6 +38,7 @@
       <ProjectReference Include="..\CoreGearERP.Common\CoreGearERP.Common.csproj" />
       <ProjectReference Include="..\CoreGearERP.Finance\CoreGearERP.Finance.csproj" />
       <ProjectReference Include="..\CoreGearERP.Inventory\CoreGearERP.Inventory.csproj" />
+      <ProjectReference Include="..\CoreGearERP.Messaging\CoreGearERP.Messaging.csproj" />
       <ProjectReference Include="..\CoreGearERP.Procurement\CoreGearERP.Procurement.csproj" />
       <ProjectReference Include="..\CoreGearERP.Production\CoreGearERP.Production.csproj" />
       <ProjectReference Include="..\CoreGearERP.Sales\CoreGearERP.Sales.csproj" />
