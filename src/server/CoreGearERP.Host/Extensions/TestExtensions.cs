@@ -1,3 +1,6 @@
+using CoreGearERP.Common.Application.Interfaces;
+using CoreGearERP.Finance.Domain.Entities;
+using CoreGearERP.Finance.Infrastructure.Persistence;
 using CoreGearERP.Inventory.Infrastructure.Persistence;
 using CoreGearERP.Procurement.Infrastructure.Persistence;
 using CoreGearERP.Production.Infrastructure.Persistence;
@@ -7,8 +10,7 @@ using Microsoft.EntityFrameworkCore;
 namespace CoreGearERP.Host.Extensions;
 
 /// <summary>
-/// Test helper endpoints for E2E test setup.
-/// Only available in Development environment.
+/// Test helper endpoints for E2E test setup. Only available in Development environment.
 /// </summary>
 public static class TestExtensions
 {
@@ -27,25 +29,39 @@ public static class TestExtensions
             InventoryDbContext inventoryContext,
             ProcurementDbContext procurementContext,
             ProductionDbContext productionContext,
-            SalesDbContext salesContext) =>
+            SalesDbContext salesContext,
+            FinanceDbContext financeContext,
+            ICurrentTenant currentTenant) =>
         {
+            await financeContext.Database.ExecuteSqlRawAsync(
+                "TRUNCATE finance.\"CostEntries\", finance.\"FinancialPeriods\" RESTART IDENTITY CASCADE;");
+
             await productionContext.Database.ExecuteSqlRawAsync(
                 "TRUNCATE production.production_orders, production.bill_of_materials_lines, production.bills_of_materials, production.work_centers RESTART IDENTITY CASCADE;");
 
             await salesContext.Database.ExecuteSqlRawAsync(
-                "TRUNCATE sales.sales_order_lines, sales.sales_orders, sales.customers RESTART IDENTITY CASCADE;");
-            
+                "TRUNCATE sales.shipment_lines, sales.shipments, sales.sales_order_lines, sales.sales_orders, sales.customers RESTART IDENTITY CASCADE;");
+
             await procurementContext.Database.ExecuteSqlRawAsync(
-                "TRUNCATE procurement.purchase_order_lines, procurement.purchase_orders, procurement.suppliers RESTART IDENTITY CASCADE;");
+                "TRUNCATE procurement.\"GoodsReceiptLine\", procurement.\"GoodsReceipts\", procurement.purchase_order_lines, procurement.purchase_orders, procurement.suppliers RESTART IDENTITY CASCADE;");
 
             await inventoryContext.Database.ExecuteSqlRawAsync(
                 "TRUNCATE inventory.stock_movements, inventory.stock_items, inventory.warehouses, inventory.products RESTART IDENTITY CASCADE;");
 
-            await salesContext.Database.ExecuteSqlRawAsync(
-                "TRUNCATE sales.shipment_lines, sales.shipments, sales.sales_order_lines, sales.sales_orders, sales.customers RESTART IDENTITY CASCADE;");
+            var now = DateTime.UtcNow;
+            var period = FinancialPeriod.Create(
+                name: now.ToString("yyyy-MM"),
+                startDate: new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc),
+                endDate: new DateTime(now.Year, now.Month, DateTime.DaysInMonth(now.Year, now.Month), 23, 59, 59,
+                    DateTimeKind.Utc),
+                tenantId: currentTenant.TenantId,
+                createdBy: Guid.Empty);
+
+            financeContext.FinancialPeriods.Add(period);
+            await financeContext.SaveChangesAsync();
 
             return Results.Ok(new { message = "Test data cleared." });
-        });
+        }).RequireAuthorization();
 
         return app;
     }

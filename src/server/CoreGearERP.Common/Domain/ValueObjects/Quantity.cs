@@ -11,6 +11,19 @@ public sealed class Quantity : IEquatable<Quantity>
     /// <summary>Unit of measure code. KG, PCS, LTR, MTR.</summary>
     public string UnitCode { get; }
 
+    /// <summary>
+    /// Required by EF Core for owned type materialization. Not for application use.
+    /// </summary>
+    private Quantity()
+    {
+        UnitCode = string.Empty;
+    }
+
+    /// <summary>
+    /// Constructor. Validates that value is non-negative and unit code is not empty.
+    /// </summary>
+    /// <param name="value">Quantity value. Must be non-negative.</param>
+    /// <param name="unitCode">Unit of measure code. Must be a non-empty string like "KG", "PCS", "LTR".</param>
     public Quantity(decimal value, string unitCode)
     {
         if (value < 0)
@@ -55,6 +68,9 @@ public sealed class Quantity : IEquatable<Quantity>
         return Value > other.Value;
     }
 
+    /// <summary>
+    /// Returns a zero quantity for the given unit. Useful for initializing accumulators.
+    /// </summary>
     public static Quantity Zero(string unitCode) => new(0, unitCode);
 
     public bool Equals(Quantity? other)

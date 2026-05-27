@@ -1,5 +1,6 @@
 using CoreGearERP.Common.Application.Interfaces;
 using CoreGearERP.Production.Domain.Entities;
+using MassTransit;
 using Microsoft.EntityFrameworkCore;
 
 namespace CoreGearERP.Production.Infrastructure.Persistence;

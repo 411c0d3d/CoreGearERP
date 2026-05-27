@@ -23,6 +23,128 @@ namespace CoreGearERP.Procurement.Infrastructure.Persistence.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("CoreGearERP.Procurement.Domain.Entities.GoodsReceipt", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("CancelledAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("ConfirmedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime>("ModifiedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("ModifiedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("PurchaseOrderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("PurchaseOrderNumber")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<DateTime>("ReceivedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("WarehouseId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PurchaseOrderId");
+
+                    b.HasIndex("TenantId");
+
+                    b.ToTable("GoodsReceipts", "procurement");
+                });
+
+            modelBuilder.Entity("CoreGearERP.Procurement.Domain.Entities.GoodsReceiptLine", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("CancelledAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("ConfirmedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("GoodsReceiptId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime>("ModifiedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("ModifiedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ProductCode")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ProductName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("PurchaseOrderLineId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GoodsReceiptId");
+
+                    b.ToTable("GoodsReceiptLine", "procurement");
+                });
+
             modelBuilder.Entity("CoreGearERP.Procurement.Domain.Entities.PurchaseOrder", b =>
                 {
                     b.Property<Guid>("Id")
@@ -280,6 +402,47 @@ namespace CoreGearERP.Procurement.Infrastructure.Persistence.Migrations
                     b.ToTable("suppliers", "procurement");
                 });
 
+            modelBuilder.Entity("CoreGearERP.Procurement.Domain.Entities.GoodsReceiptLine", b =>
+                {
+                    b.HasOne("CoreGearERP.Procurement.Domain.Entities.GoodsReceipt", null)
+                        .WithMany("Lines")
+                        .HasForeignKey("GoodsReceiptId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.OwnsOne("CoreGearERP.Common.Domain.ValueObjects.Quantity", "QuantityReceived", b1 =>
+                        {
+                            b1.Property<Guid>("GoodsReceiptLineId")
+                                .HasColumnType("uuid");
+
+                            b1.HasKey("GoodsReceiptLineId");
+
+                            b1.ToTable("GoodsReceiptLine", "procurement");
+
+                            b1.WithOwner()
+                                .HasForeignKey("GoodsReceiptLineId");
+                        });
+
+                    b.OwnsOne("CoreGearERP.Common.Domain.ValueObjects.Money", "UnitPrice", b1 =>
+                        {
+                            b1.Property<Guid>("GoodsReceiptLineId")
+                                .HasColumnType("uuid");
+
+                            b1.HasKey("GoodsReceiptLineId");
+
+                            b1.ToTable("GoodsReceiptLine", "procurement");
+
+                            b1.WithOwner()
+                                .HasForeignKey("GoodsReceiptLineId");
+                        });
+
+                    b.Navigation("QuantityReceived")
+                        .IsRequired();
+
+                    b.Navigation("UnitPrice")
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("CoreGearERP.Procurement.Domain.Entities.PurchaseOrderLine", b =>
                 {
                     b.HasOne("CoreGearERP.Procurement.Domain.Entities.PurchaseOrder", null)
@@ -287,30 +450,6 @@ namespace CoreGearERP.Procurement.Infrastructure.Persistence.Migrations
                         .HasForeignKey("PurchaseOrderId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-
-                    b.OwnsOne("CoreGearERP.Common.Domain.ValueObjects.Money", "UnitPrice", b1 =>
-                        {
-                            b1.Property<Guid>("PurchaseOrderLineId")
-                                .HasColumnType("uuid");
-
-                            b1.Property<decimal>("Amount")
-                                .HasPrecision(18, 4)
-                                .HasColumnType("numeric(18,4)")
-                                .HasColumnName("unit_price");
-
-                            b1.Property<string>("CurrencyCode")
-                                .IsRequired()
-                                .HasMaxLength(3)
-                                .HasColumnType("character varying(3)")
-                                .HasColumnName("currency_code");
-
-                            b1.HasKey("PurchaseOrderLineId");
-
-                            b1.ToTable("purchase_order_lines", "procurement");
-
-                            b1.WithOwner()
-                                .HasForeignKey("PurchaseOrderLineId");
-                        });
 
                     b.OwnsOne("CoreGearERP.Common.Domain.ValueObjects.Quantity", "QuantityOrdered", b1 =>
                         {
@@ -360,6 +499,30 @@ namespace CoreGearERP.Procurement.Infrastructure.Persistence.Migrations
                                 .HasForeignKey("PurchaseOrderLineId");
                         });
 
+                    b.OwnsOne("CoreGearERP.Common.Domain.ValueObjects.Money", "UnitPrice", b1 =>
+                        {
+                            b1.Property<Guid>("PurchaseOrderLineId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<decimal>("Amount")
+                                .HasPrecision(18, 4)
+                                .HasColumnType("numeric(18,4)")
+                                .HasColumnName("unit_price");
+
+                            b1.Property<string>("CurrencyCode")
+                                .IsRequired()
+                                .HasMaxLength(3)
+                                .HasColumnType("character varying(3)")
+                                .HasColumnName("currency_code");
+
+                            b1.HasKey("PurchaseOrderLineId");
+
+                            b1.ToTable("purchase_order_lines", "procurement");
+
+                            b1.WithOwner()
+                                .HasForeignKey("PurchaseOrderLineId");
+                        });
+
                     b.Navigation("QuantityOrdered")
                         .IsRequired();
 
@@ -368,6 +531,11 @@ namespace CoreGearERP.Procurement.Infrastructure.Persistence.Migrations
 
                     b.Navigation("UnitPrice")
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("CoreGearERP.Procurement.Domain.Entities.GoodsReceipt", b =>
+                {
+                    b.Navigation("Lines");
                 });
 
             modelBuilder.Entity("CoreGearERP.Procurement.Domain.Entities.PurchaseOrder", b =>

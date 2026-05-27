@@ -14,7 +14,7 @@ public class SalesDbContext : DbContext
     public DbSet<Customer> Customers => Set<Customer>();
 
     public DbSet<SalesOrder> SalesOrders => Set<SalesOrder>();
-    
+
     public DbSet<Shipment> Shipments => Set<Shipment>();
 
     // used for direct line queries in reporting -- accessed via Include() in current handlers

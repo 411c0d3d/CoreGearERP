@@ -88,7 +88,16 @@ PurchaseOrderLine
 GoodsReceipt
   belongs to PurchaseOrder
   has many GoodsReceiptLines
+  WarehouseId -- where stock landed
+  ReceivedAt  -- UTC timestamp of receipt
   triggers StockMovement in Inventory on creation
+
+GoodsReceiptLine
+  belongs to GoodsReceipt
+  references PurchaseOrderLine by Id
+  references Product by Id
+  QuantityReceived
+  UnitPrice (Money) -- copied from PO line at receipt time
 ```
 
 ### Status Progressions
@@ -111,6 +120,8 @@ PurchaseOrderLine:
 - Goods receipt quantity per line cannot exceed ordered quantity
 - Supplier must be Active to raise a PO
 - A confirmed PO cannot be cancelled if any goods have been received
+- Each partial receipt against a PO line produces one GoodsReceipt document
+- A GoodsReceipt is immutable once created -- no updates or deletes
 
 ---
 
