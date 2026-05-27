@@ -1,12 +1,9 @@
 using CoreGearERP.Common.Application.Interfaces;
-using CoreGearERP.Inventory.Application.Products;
 using CoreGearERP.Inventory.Application.Products.CreateProduct;
 using CoreGearERP.Inventory.Application.Products.GetProducts;
-using CoreGearERP.Inventory.Application.StockItems;
 using CoreGearERP.Inventory.Application.StockItems.CreateStockItem;
 using CoreGearERP.Inventory.Application.StockItems.GetStockItems;
 using CoreGearERP.Inventory.Application.StockMovements;
-using CoreGearERP.Inventory.Application.Warehouses;
 using CoreGearERP.Inventory.Application.Warehouses.CreateWarehouse;
 using CoreGearERP.Inventory.Application.Warehouses.GetWarehouses;
 using Microsoft.AspNetCore.Builder;

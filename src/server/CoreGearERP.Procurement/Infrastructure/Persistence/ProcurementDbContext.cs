@@ -1,5 +1,7 @@
 using CoreGearERP.Common.Application.Interfaces;
+using CoreGearERP.Common.Domain.ValueObjects;
 using CoreGearERP.Procurement.Domain.Entities;
+using MassTransit;
 using Microsoft.EntityFrameworkCore;
 
 namespace CoreGearERP.Procurement.Infrastructure.Persistence;
@@ -10,9 +12,11 @@ namespace CoreGearERP.Procurement.Infrastructure.Persistence;
 public class ProcurementDbContext : DbContext
 {
     private readonly ICurrentTenant _currentTenant;
+
     public DbSet<Supplier> Suppliers => Set<Supplier>();
     public DbSet<PurchaseOrder> PurchaseOrders => Set<PurchaseOrder>();
     public DbSet<PurchaseOrderLine> PurchaseOrderLines => Set<PurchaseOrderLine>();
+    public DbSet<GoodsReceipt> GoodsReceipts => Set<GoodsReceipt>();
 
     /// <summary>
     /// Initializes a new instance of the ProcurementDbContext class with the specified options and tenant context.
@@ -29,8 +33,10 @@ public class ProcurementDbContext : DbContext
     {
         base.OnModelCreating(modelBuilder);
 
-        modelBuilder.HasDefaultSchema("procurement");
+        modelBuilder.Owned<Quantity>();
+        modelBuilder.Owned<Money>();
 
+        modelBuilder.HasDefaultSchema("procurement");
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(ProcurementDbContext).Assembly);
     }
 }

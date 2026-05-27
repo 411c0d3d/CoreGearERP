@@ -6,6 +6,8 @@
 
 **Status:** Accepted
 
+**See also:** [Domain model](Domain%20model.md) -- value objects, entity conventions, bounded context boundaries.
+
 **Decision:** Single monorepo containing both server and client. Server is a modular monolith. Client is an Angular SPA. Both live under one `CoreGearERP` repository.
 
 **Full repository structure:**
@@ -37,7 +39,7 @@ CoreGearERP/
     CoreGearERP.Tests/          -- E2E HTTP flow tests
 ```
 
-Note: `client/` does not exist yet. Separate xUnit test projects per module will be added at M5 when integration tests are written with Testcontainers.
+Note: `client/` does not exist yet. Separate xUnit test projects per module will be added at M6 when integration tests are written with Testcontainers. Angular UI scaffold moves to M7. Inventory extraction moves to M8.
 
 **Why:** One repo means one PR for changes that touch both backend and frontend. No cross-repo coordination overhead. Simpler for a single developer or small team. At M7 when Inventory is extracted it stays in the same repo as a second server project -- still one repo, now two deployables.
 
@@ -48,6 +50,8 @@ Note: `client/` does not exist yet. Separate xUnit test projects per module will
 ## ADR-001: Monolith First, Extract Later
 
 **Status:** Accepted
+
+**See also:** [Domain model](Domain%20model.md) -- module entity lists and folder structure examples
 
 **Decision:** One deployable host. Modules are separate class libraries within a single host. Inventory is extracted to a standalone service at M7.
 
@@ -60,6 +64,8 @@ Note: `client/` does not exist yet. Separate xUnit test projects per module will
 ## ADR-002: Pragmatic DDD as Domain Modeling Approach
 
 **Status:** Accepted
+
+**See also:** [Domain model](Domain%20model.md) -- event contracts in `Common/Application/Events/` | [DB migrations](DB%20migrations.md) -- outbox table migration commands per module
 
 **Decision:** CoreGearERP uses a Pragmatic DDD approach -- taking the high-value parts of Domain-Driven Design without the full ceremony. This is a deliberate choice, not an oversight.
 
@@ -98,6 +104,8 @@ Pragmatic DDD. Domain-influenced architecture. If asked in an interview: Clean A
 
 **Status:** Accepted
 
+**See also:** [Domain model](Domain%20model.md) -- module entity lists and folder structure examples
+
 **Decision:** Each module follows Clean Architecture without ceremony. Three layers per module -- Domain, Application, Infrastructure. No fourth presentation layer; that responsibility belongs to the Host project.
 
 ```
@@ -118,6 +126,7 @@ CoreGearERP.Inventory/
       Migrations/
     gRPC/
       InventoryGrpcService.cs
+    Messaging/        -- MassTransit consumers and outbox (added at M5)
 ```
 
 **Layer rules:**
@@ -157,7 +166,8 @@ CoreGearERP.{Module}/
     Persistence/
       Configurations/ -- EF Core entity type configurations, one per entity
       Migrations/     -- EF Core generated migrations, never edit manually
-    gRPC/             -- gRPC service implementation (Inventory and Production only)
+    gRPC/             -- gRPC service implementation (Inventory only at M4)
+    Messaging/        -- MassTransit consumers and outbox (added at M5)
   Extensions/
     {Module}Endpoints.cs   -- HTTP endpoint registrations
     {Module}Extensions.cs  -- DI service registrations
@@ -212,7 +222,13 @@ CoreGearERP.Inventory/
       Migrations/
       InventoryDbContext.cs
       InventoryDbContextFactory.cs
-    gRPC/             -- populated at M4
+    gRPC/
+      inventory.proto
+      InventoryCommandGrpcService.cs
+      InventoryCommandGrpcClient.cs
+      InventoryQueryGrpcService.cs
+      InventoryQueryGrpcClient.cs
+    Messaging/             -- populated at M5
   Extensions/
     InventoryEndpoints.cs
     InventoryExtensions.cs
@@ -229,6 +245,7 @@ CoreGearERP.Common/
     Enums/            -- enumerations shared across modules
   Application/
     Interfaces/       -- ICurrentTenant, ICurrentUser
+    Events/           -- domain event contracts, shared across all modules (added at M5)
 ```
 
 ### CoreGearERP.Host Structure
@@ -237,6 +254,9 @@ CoreGearERP.Common/
 CoreGearERP.Host/
   Extensions/         -- module registration extension methods
   Middleware/         -- tenant resolution, exception handling
+  Infrastructure/
+    Behaviors/        -- LoggingBehavior, ValidationBehavior
+    Dispatcher.cs
 ```
 
 ### Layer Rules
@@ -250,7 +270,8 @@ CoreGearERP.Host/
 ### Folder Creation Rules
 
 - `ValueObjects/` and `Exceptions/` are not created inside modules by default -- add them only when a module needs something not covered by Common
-- `gRPC/` only exists in Inventory and Production at M4
+- `gRPC/` only exists in Inventory at M4. Production may add it at M7 extraction
+- `Messaging/` is added per module at M5 when the module publishes or consumes events
 - `Migrations/` stays empty until the first EF Core migration at end of M1
 - A new feature always gets a Command or Query file, never logic added to an existing handler
 
@@ -258,15 +279,43 @@ CoreGearERP.Host/
 
 ## ADR-004: gRPC for Inter-Module Synchronous Communication
 
-**Status:** Accepted
+**Status:** Accepted -- Implemented at M4
+
+**See also:** [Domain model](Domain%20model.md) -- cross-module reference rules (Id-only, no navigation properties)
 
 **Decision:** All synchronous cross-module calls use gRPC with Protobuf contracts. No direct DbContext sharing across module boundaries under any circumstance.
 
 **Why:** Protobuf contracts are typed and versioned. Breaking changes are caught at compile time. REST with JSON does not give you this. When Inventory is extracted at M7 the contracts remain unchanged -- only the transport changes from in-process to network.
 
-**Current state (M2-M3):** Cross-module synchronous calls are implemented in-process via service interfaces defined in `CoreGearERP.Common`. `IInventoryCommandService` and `IInventoryQueryService` are implemented in `CoreGearERP.Inventory` and resolved through DI. No direct DbContext sharing across modules. The interfaces are already defined as if they were remote -- no parameters reference EF Core entities or navigation properties.
+**M4 implementation:**
 
-**At M4:** The in-process implementations are replaced with gRPC clients. The interface contracts in Common remain unchanged. Only the registered implementation in DI changes -- from `InventoryCommandService` (in-process) to `InventoryGrpcClient` (over the wire). Callers in Procurement, Production, and Sales do not change at all.
+- `inventory.proto` lives in `CoreGearERP.Inventory/Infrastructure/gRPC/`
+- Inventory csproj uses `GrpcServices="Both"` -- generates server base classes and client stubs
+- Procurement, Production, Sales csproj use `GrpcServices="None"` -- proto linked for IDE visibility only, no code generation (avoids type ambiguity in Host)
+- `InventoryCommandGrpcService` and `InventoryQueryGrpcService` are the server implementations, registered via `MapGrpcService<>` in `Program.cs`
+- `InventoryCommandGrpcClient` and `InventoryQueryGrpcClient` implement `IInventoryCommandService` and `IInventoryQueryService` -- registered in Host DI replacing the in-process implementations
+- Kestrel serves HTTP on port 5014 and gRPC HTTP/2 on port 5015
+- `AddGrpc()` and `AddGrpcClient<>` registered in `HostExtensions.cs`
+- Concrete `InventoryCommandService` and `InventoryQueryService` remain registered for injection into the gRPC server services
+
+**Proto services:**
+
+```protobuf
+service InventoryCommands {
+  rpc AddStock
+  rpc AddStockFromProduction
+  rpc IssueStock
+  rpc ReserveStockInWarehouse
+  rpc ReleaseReservation
+  rpc ShipStock
+}
+
+service InventoryQueries {
+  rpc GetAvailableStock
+  rpc GetAvailableStockInWarehouse
+  rpc FindBestWarehouse
+}
+```
 
 **Tradeoff:** More setup than REST. Not browser-friendly so it is internal only. REST remains the external API for Angular.
 
@@ -292,27 +341,93 @@ Production confirmation requires explicit `ComponentWarehouses` per BOM line wit
 
 ## ADR-005: RabbitMQ + MassTransit + Outbox Pattern
 
-**Status:** Accepted
+**Status:** Accepted -- Implementation starts at M5
 
-**Decision:** RabbitMQ self-hosted via Docker. MassTransit as the .NET abstraction layer. Outbox pattern for guaranteed at-least-once delivery.
+**See also:** [Domain model](Domain%20model.md) -- event contracts in `Common/Application/Events/` | [DB migrations](DB%20migrations.md) -- outbox table migration commands per module
 
-**Why:** Self-hosted means full visibility into every part of the messaging infrastructure. The outbox pattern ensures events are not lost if the broker is unavailable -- the event is written to the database in the same transaction as the state change and dispatched by a background worker. MassTransit handles consumer registration, retry policies, and dead letter routing without boilerplate.
+**Decision:** RabbitMQ self-hosted via Docker. MassTransit as the .NET abstraction layer. Outbox pattern via MassTransit's built-in Entity Framework outbox for guaranteed at-least-once delivery.
 
-**Tradeoff:** Consumers must be idempotent. At-least-once delivery means duplicates are possible and must be handled. Dead letter queues require monitoring.
+**Why RabbitMQ:** Self-hosted means full visibility into every part of the messaging infrastructure. Free, mature, and widely used. The management UI at port 15672 gives full visibility into queues, exchanges, and dead letters during development. No cloud vendor dependency for the message broker.
+
+**Why MassTransit:** Handles consumer registration, retry policies, dead letter routing, and the outbox pattern without boilerplate. The abstraction means the broker can be swapped to Azure Service Bus at M7 extraction with a configuration change only -- no consumer code changes.
+
+**Why the Outbox pattern:** Without it, a state change can be committed to the database but the corresponding event can fail to publish if the broker is down. The outbox writes the event to the database in the same transaction as the state change. A background worker dispatches it when the broker is available. Events are never lost.
 
 **Outbox flow:**
-1. State change and OutboxMessage written in single DB transaction
-2. Background worker polls OutboxMessage for unprocessed records
+
+1. State change and `OutboxMessage` written in single DB transaction
+2. MassTransit outbox background worker polls for unprocessed records
 3. Worker publishes to RabbitMQ exchange
-4. Worker marks OutboxMessage as processed
+4. Worker marks `OutboxMessage` as processed
 5. Consumers receive and process independently
 6. Failed consumers retry per MassTransit policy then move to dead letter queue
+
+**Event contracts:**
+
+Event contracts are defined in `CoreGearERP.Common` under `Application/Events/`. Each contract is a simple record with the minimum data consumers need. Consumers never receive EF Core entities or domain objects -- only flat data contracts.
+
+```
+CoreGearERP.Common/
+  Application/
+    Events/
+      GoodsReceived.cs
+      ProductionCompleted.cs
+      SalesOrderShipped.cs
+      StockReserved.cs
+      StockReleased.cs
+```
+
+**Consumer placement:**
+
+Each module places its consumers in `Infrastructure/Messaging/Consumers/`. A module only consumes events it actually needs. Finance consumes from all operational modules. Inventory consumes nothing at M5.
+
+**Idempotency:**
+
+Consumers must be idempotent. MassTransit's inbox pattern (enabled alongside the outbox) deduplicates redelivered messages using the message ID. This handles the at-least-once delivery guarantee transparently.
+
+**Dead letter handling:**
+
+Failed messages after exhausting retries land in a dead letter queue named `{queue-name}_error`. These are monitored via the RabbitMQ management UI. Requeuing is manual at M5 -- automated dead letter processing is deferred to a later milestone.
+
+**Tradeoff:** At-least-once delivery means duplicates are possible. Consumers must handle them. Dead letter queues require monitoring. The outbox adds a polling loop and extra database rows per event.
+
+---
+
+## ADR-005b: Financial Period Management
+
+**Status:** Accepted
+
+**See also:** [Domain model](Domain%20model.md) -- `FinancialPeriod` entity | [DB migrations](DB%20migrations.md) -- Finance schema migration
+
+**Decision:** Financial periods are managed explicitly via a `POST /finance/periods` API endpoint. The system does not auto-create periods on startup. At least one open period must exist before any cost entry can be posted.
+
+**Why explicit management:**
+
+In production ERP systems (SAP, Dynamics 365, Odoo), the finance team owns the period lifecycle. They open a period at the start of a month, post all transactions through the month, then close it at month-end. Closing triggers reconciliation. No further postings are permitted after close. Auto-creating periods on startup removes this control from the finance team and hides a meaningful domain concept.
+
+**Period lifecycle:**
+
+Open --> Closed
+
+A period cannot be reopened once closed. Corrections to a closed period require a reversal entry in the next open period -- never a direct edit.
+
+**Period scope:**
+
+A period has a `StartDate` and `EndDate`. Typically one calendar month. The system enforces that cost entries fall within the bounds of an open period. If no open period exists, the cost entry is rejected with a domain error.
+
+**Local development and E2E testing:**
+
+The `DELETE /test/reset` endpoint seeds one default open period covering the current calendar month alongside the table truncation. This ensures the E2E test flow can post cost entries without a manual period setup step. The seeded period is indistinguishable from a real period -- it goes through the same `FinancialPeriod.Create()` factory method.
+
+**Tradeoff:** Requires an open period to exist before any operational event can produce a Finance cost entry. In a fresh environment this is a deliberate setup step, not a bug. The test reset handles it for automated flows.
 
 ---
 
 ## ADR-006: PostgreSQL
 
 **Status:** Accepted
+
+**See also:** [DB migrations](DB%20migrations.md) -- all module migration commands and run order.
 
 **Decision:** PostgreSQL for all modules, separate schema per module. Develop locally via Docker, deploy to Azure Database for PostgreSQL Flexible Server.
 
@@ -349,145 +464,6 @@ Production confirmation requires explicit `ComponentWarehouses` per BOM line wit
 **Why:** Stock levels must never be served from a simple cache. A stale value causes oversell. The read model projection is kept current by RabbitMQ domain events so it is fast without staleness risk. IMemoryCache is sufficient for data that changes infrequently. Redis is added only where the cache must be shared across instances or survive a restart.
 
 **Tradeoff:** The read model is eventually consistent. There is a brief window between a stock movement and the projection updating. This is acceptable for dashboards. The actual stock reservation check always hits the write model via gRPC -- never the projection.
-
----
-
-
-
-### Business Rules by Module
-
-**Inventory**
-- Stock can never go negative -- reservation must be validated before any outbound movement
-- Stock movements are immutable -- never update or delete, compensate with a counter-movement
-- A product must exist before a stock item can be created
-- A warehouse location must be active to receive stock
-- Quantity and unit of measure must be consistent per product
-
-**Procurement**
-- A purchase order must have at least one line item
-- PO line quantity must be greater than zero
-- A PO can only be cancelled if not fully received
-- Goods receipt quantity cannot exceed ordered quantity per line
-- Supplier must be active to raise a PO against them
-- Price on a PO line is locked at creation -- supplier price changes do not affect open orders
-
-**Production**
-- A production order cannot be confirmed if any required component has insufficient stock
-- Bill of Materials must have at least one component with quantity greater than zero
-- A production order cannot be started if status is not Confirmed
-- Completed production orders are immutable
-- Component consumption is recorded at actual not planned
-- Confirmation requires explicit warehouse assignment per component -- the caller specifies where each component is sourced from, the system does not auto-resolve warehouses
-- Completion requires explicit warehouse assignment per component and a finished goods warehouse
-
-**Sales**
-- A sales order cannot be confirmed without a stock reservation per line
-- Confirmation requires an explicit warehouse -- the caller specifies which warehouse fulfils the order
-- Cancelling an order releases all reservations immediately
-- A customer must be active to place an order
-- Shipment quantity per line cannot exceed ordered quantity
-- An order with a partial shipment remains open until fully shipped or explicitly cancelled
-- Shipment requires an explicit warehouse matching the one used for reservation
-
-**Finance**
-- Every cost entry must reference a source document (production order, goods receipt, invoice)
-- Financial periods can be locked -- no entries permitted into a closed period
-- Cost entries cannot be deleted, only reversed with a counter-entry
-- Invoice total must equal the sum of its lines
-- Payments cannot exceed the invoice amount
-
-**Cross-Cutting**
-- Every entity belongs to a tenant -- no cross-tenant data access under any circumstance
-- Soft delete only -- nothing is hard deleted
-- Every state transition is timestamped and attributed to a user
-- Money is always decimal with currency code -- never float
-- Quantities are always stored with their unit of measure -- never a bare number
-
----
-
-## Data Model Conventions
-
-### Base Entity Shape
-
-Every table carries these columns without exception:
-
-```
-Id              uuid            PRIMARY KEY
-TenantId        uuid            NOT NULL, indexed
-Status          varchar         NOT NULL
-IsDeleted       bool            NOT NULL DEFAULT false
-CreatedAt       timestamptz     NOT NULL
-CreatedBy       uuid            NOT NULL
-ModifiedAt      timestamptz     NOT NULL
-ModifiedBy      uuid            NOT NULL
-```
-
-### Business Keys
-
-Every entity with a human-facing identifier gets a separate business key alongside the UUID primary key. Business keys are unique per tenant, not globally. UUID is the join key. Business key is what humans read.
-
-```
-Id                    uuid      PRIMARY KEY
-PurchaseOrderNumber   varchar   UNIQUE per tenant
-```
-
-### Denormalized Reference Data
-
-Entities that are frequently queried with display information from related entities carry denormalized copies of that data. This avoids JOIN queries on the hot read path.
-
-Examples applied throughout the codebase:
-
-- `PurchaseOrder` carries `SupplierName` -- no JOIN to Suppliers on every order list query
-- `SalesOrder` carries `CustomerName` -- same reason
-- `StockItem` carries `ProductCode`, `ProductName`, `WarehouseCode` -- stock level dashboard never needs a JOIN
-- `PurchaseOrderLine` carries `ProductCode`, `ProductName` -- line display does not JOIN to Inventory
-- `BillOfMaterialsLine` carries `ComponentProductCode`, `ComponentProductName` -- same pattern
-
-The denormalized values are set at creation and treated as read-only snapshots. They reflect the state at the time the record was created. If a product name changes, existing order lines keep the original name which is correct -- historical records should not silently change.
-
-This is the same pattern used in event sourcing event payloads and in read models. The difference is these are on the write model itself, which is acceptable when the data is stable and the query benefit is clear.
-
-### Money
-
-Every monetary value is two columns, always stored together:
-
-```
-Amount          decimal(18,4)   NOT NULL
-CurrencyCode    char(3)         NOT NULL   -- ISO 4217: EUR, USD, GBP
-```
-
-Never a single decimal column. Never a float.
-
-### Quantity
-
-Every quantity value is two columns, always stored together:
-
-```
-Quantity        decimal(18,4)   NOT NULL
-UnitCode        varchar         NOT NULL   -- KG | PCS | LTR | MTR
-```
-
-### Status Transition Timestamps
-
-For entities with meaningful state transitions, record when each transition happened alongside the Status column:
-
-```
-ConfirmedAt     timestamptz     -- null until confirmed
-CompletedAt     timestamptz     -- null until completed
-CancelledAt     timestamptz     -- null until cancelled
-```
-
-### Deliberately Deferred
-
-Real patterns held back until the code actually needs them:
-
-| Pattern | Add When |
-|---|---|
-| RowVersion / optimistic concurrency | Concurrent edit conflicts surface in testing |
-| Extensions JSONB column | Custom fields become a real requirement at M5 |
-| Temporal pricing tables | Pricing module is built |
-| DocumentSequence table | Invoicing module is built |
-| Reference data tables | Each module needs them organically |
 
 ---
 
@@ -553,3 +529,231 @@ The dispatcher returns `Result<TResult>` for every command and query. Endpoints 
 - Integrates directly with Azure RBAC if the deployment target is Azure
 
 **Tradeoff:** Entra ID adds Azure vendor dependency for auth. If the deployment target changes to on-prem or another cloud, Keycloak is the self-hosted alternative with the same OAuth2/OIDC standards and a similar feature set.
+
+---
+
+### Business Rules by Module
+
+**Inventory**
+- Stock can never go negative -- reservation must be validated before any outbound movement
+- Stock movements are immutable -- never update or delete, compensate with a counter-movement
+- A product must exist before a stock item can be created
+- A warehouse location must be active to receive stock
+- Quantity and unit of measure must be consistent per product
+
+**Procurement**
+- A purchase order must have at least one line item
+- PO line quantity must be greater than zero
+- A PO can only be cancelled if not fully received
+- Goods receipt quantity cannot exceed ordered quantity per line
+- Supplier must be active to raise a PO against them
+- Price on a PO line is locked at creation -- supplier price changes do not affect open orders
+
+**Production**
+- A production order cannot be confirmed if any required component has insufficient stock
+- Bill of Materials must have at least one component with quantity greater than zero
+- A production order cannot be started if status is not Confirmed
+- Completed production orders are immutable
+- Component consumption is recorded at actual not planned
+- Confirmation requires explicit warehouse assignment per component -- the caller specifies where each component is sourced from, the system does not auto-resolve warehouses
+- Completion requires explicit warehouse assignment per component and a finished goods warehouse
+
+**Sales**
+- A sales order cannot be confirmed without a stock reservation per line
+- Confirmation requires an explicit warehouse -- the caller specifies which warehouse fulfils the order
+- Cancelling an order releases all reservations immediately
+- A customer must be active to place an order
+- Shipment quantity per line cannot exceed ordered quantity
+- An order with a partial shipment remains open until fully shipped or explicitly cancelled
+- Shipment requires an explicit warehouse matching the one used for reservation
+
+**Finance**
+- Every cost entry must reference a source document (production order, goods receipt, invoice)
+- Financial periods can be locked -- no entries permitted into a closed period
+- Cost entries cannot be deleted, only reversed with a counter-entry
+- Invoice total must equal the sum of its lines
+- Payments cannot exceed the invoice amount
+
+**Cross-Cutting**
+- Every entity belongs to a tenant -- no cross-tenant data access under any circumstance
+- Soft delete only -- nothing is hard deleted
+- Every state transition is timestamped and attributed to a user
+- Money is always decimal with currency code -- never float
+- Quantities are always stored with their unit of measure -- never a bare number
+
+---
+
+## ADR-011: Shared OutboxDbContext for MassTransit Bus Outbox
+
+**Status:** Accepted -- Implemented at M5
+
+**See also:** [Domain model](Domain%20model.md) -- `messaging` schema tables | [DB migrations](DB%20migrations.md) -- OutboxDbContext migration commands
+
+**Decision:** A dedicated `CoreGearERP.Messaging` project owns a single `OutboxDbContext` containing only the MassTransit outbox and inbox tables. All publishing modules (Procurement, Production, Sales) write outbox messages to this context within the same explicit transaction as their domain `SaveChangesAsync`. The Finance inbox is also hosted here. A single `UseBusOutbox<OutboxDbContext>()` registration drives the delivery service.
+
+**Project structure:**
+
+```
+CoreGearERP.Messaging/
+  Infrastructure/
+    Persistence/
+      OutboxDbContext.cs
+      OutboxDbContextFactory.cs
+      Migrations/
+  Extensions/
+    MessagingExtensions.cs
+```
+
+**Schema:** `messaging`
+
+**Tables owned:** `OutboxState`, `OutboxMessage`, `InboxState` -- nothing else. No domain entities, no module bleed.
+
+**How publishers write to the shared outbox:**
+
+Each publishing handler opens an explicit `NpgsqlTransaction` and enlists both its module DbContext and `OutboxDbContext` into it. Both contexts commit atomically. Note the required `.GetDbTransaction()` call -- EF Core's `UseTransaction` expects a `DbTransaction`, not the Npgsql-typed wrapper directly.
+
+```csharp
+await using var connection = new NpgsqlConnection(connectionString);
+await connection.OpenAsync(cancellationToken);
+await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+
+moduleContext.Database.UseTransaction(transaction.GetDbTransaction());
+outboxContext.Database.UseTransaction(transaction.GetDbTransaction());
+
+await _publishEndpoint.Publish(evt, cancellationToken);  // intercepted -- writes outbox row
+await moduleContext.SaveChangesAsync(cancellationToken);
+await outboxContext.SaveChangesAsync(cancellationToken);
+await transaction.CommitAsync(cancellationToken);
+```
+
+**MessagingExtensions registration shape:**
+
+```csharp
+x.AddEntityFrameworkOutbox<OutboxDbContext>(o =>
+{
+    o.UsePostgres();
+    o.UseBusOutbox();
+});
+```
+
+No `AddEntityFrameworkOutbox` calls for Procurement, Production, or Sales. Finance consumer endpoints use `UseEntityFrameworkOutbox<OutboxDbContext>` for inbox deduplication only.
+
+**Extraction path to microservices:**
+
+When a module is extracted, its `OutboxDbContext` dependency is dropped. The extracted service runs its own DbContext with `UseBusOutbox()` directly -- the standard single-service outbox setup with no architectural change to publisher code beyond DI rewiring. See [ADR-001](ADR.md#adr-001-monolith-first-extract-later) for the extraction strategy.
+
+**Tradeoff:** Publishers carry an infrastructure dependency on `CoreGearERP.Messaging`. No domain or application layer in any module references it. The explicit transaction adds a small amount of boilerplate per publishing handler.
+
+---
+
+### Optional Read: Why This Architecture Was Necessary
+
+This section explains the root cause and the decisions made along the way. It is not required reading to work with the codebase.
+
+**What went wrong with the original approach**
+
+The initial M5 design called `AddEntityFrameworkOutbox<TContext>()` with `UseBusOutbox()` on Procurement, Production, Sales, and Finance DbContexts simultaneously. This seemed correct -- each module owns its own tables, each module gets its own outbox. The MassTransit v8 documentation does not explicitly warn against this.
+
+The failure manifested as a `NullReferenceException` inside `BusOutboxNotification.WaitForDelivery` on the first delivery attempt after startup. The stack trace pointed into MassTransit internals with no obvious link to the multi-DbContext registration.
+
+**Root cause in MassTransit v8**
+
+`UseBusOutbox()` registers a `BusOutboxDeliveryService<TContext>` hosted service per DbContext and a shared `BusOutboxNotification` singleton. The singleton is initialised the first time `UseBusOutbox()` is called. Subsequent calls register additional delivery services but the notification object is already set. When the second and third delivery services start, they hold a reference to a notification state that was initialised for a different context scope. The result is a null reference on the first signalling attempt.
+
+This is a v8 architectural constraint, not a misconfiguration. The v8 outbox was designed for a single deployable with a single DbContext. A modular monolith with multiple publishing DbContexts on one bus is outside the design envelope.
+
+**Why not upgrade to MassTransit v9**
+
+MassTransit v9 explicitly supports multiple DbContext outbox registrations and resolves this limitation cleanly. The upgrade path is straightforward. However v9 requires a commercial license for production use. The same licensing dynamic that drove the removal of MediatR (see [ADR-009](ADR.md#adr-009-custom-dispatcher-replacing-mediatr)) applies here. CoreGearERP is a learning platform and this cost is not justified.
+
+**What was tried before the shared context decision**
+
+Designating a single module (Procurement) as the sole `UseBusOutbox()` owner was attempted first. Production and Sales registered their outbox tables but omitted `UseBusOutbox()`. This stopped the crash but meant Production and Sales outbox rows were never delivered -- the delivery service was not running for those contexts. Messages were written atomically but never forwarded to RabbitMQ.
+
+The shared `OutboxDbContext` is the minimal change that satisfies all constraints: one delivery service, one `UseBusOutbox()`, atomic writes from all three publishers, no v9 dependency.
+
+**The `GetDbTransaction()` gotcha**
+
+`NpgsqlTransaction` is not the same type as `DbTransaction`. EF Core's `UseTransaction(DbTransaction)` overload requires the base type. Passing the `NpgsqlTransaction` instance directly may compile but will silently fail to enlist the context in the transaction depending on the EF Core version. Always call `.GetDbTransaction()` explicitly. This is reflected in the code pattern above.
+
+## Data Model Conventions
+
+### Base Entity Shape
+
+Every table carries these columns without exception:
+
+```
+Id              uuid            PRIMARY KEY
+TenantId        uuid            NOT NULL, indexed
+Status          varchar         NOT NULL
+IsDeleted       bool            NOT NULL DEFAULT false
+CreatedAt       timestamptz     NOT NULL
+CreatedBy       uuid            NOT NULL
+ModifiedAt      timestamptz     NOT NULL
+ModifiedBy      uuid            NOT NULL
+```
+
+### Business Keys
+
+Every entity with a human-facing identifier gets a separate business key alongside the UUID primary key. Business keys are unique per tenant, not globally. UUID is the join key. Business key is what humans read.
+
+```
+Id                    uuid      PRIMARY KEY
+PurchaseOrderNumber   varchar   UNIQUE per tenant
+```
+
+### Denormalized Reference Data
+
+Entities that are frequently queried with display information from related entities carry denormalized copies of that data. This avoids JOIN queries on the hot read path.
+
+Examples applied throughout the codebase:
+
+- `PurchaseOrder` carries `SupplierName` -- no JOIN to Suppliers on every order list query
+- `SalesOrder` carries `CustomerName` -- same reason
+- `StockItem` carries `ProductCode`, `ProductName`, `WarehouseCode` -- stock level dashboard never needs a JOIN
+- `PurchaseOrderLine` carries `ProductCode`, `ProductName` -- line display does not JOIN to Inventory
+- `BillOfMaterialsLine` carries `ComponentProductCode`, `ComponentProductName` -- same pattern
+
+The denormalized values are set at creation and treated as read-only snapshots. They reflect the state at the time the record was created. If a product name changes, existing order lines keep the original name which is correct -- historical records should not silently change.
+
+### Money
+
+Every monetary value is two columns, always stored together:
+
+```
+Amount          decimal(18,4)   NOT NULL
+CurrencyCode    char(3)         NOT NULL   -- ISO 4217: EUR, USD, GBP
+```
+
+Never a single decimal column. Never a float.
+
+### Quantity
+
+Every quantity value is two columns, always stored together:
+
+```
+Quantity        decimal(18,4)   NOT NULL
+UnitCode        varchar         NOT NULL   -- KG | PCS | LTR | MTR
+```
+
+### Status Transition Timestamps
+
+For entities with meaningful state transitions, record when each transition happened alongside the Status column:
+
+```
+ConfirmedAt     timestamptz     -- null until confirmed
+CompletedAt     timestamptz     -- null until completed
+CancelledAt     timestamptz     -- null until cancelled
+```
+
+### Deliberately Deferred
+
+Real patterns held back until the code actually needs them:
+
+| Pattern | Add When |
+|---|---|
+| RowVersion / optimistic concurrency | Concurrent edit conflicts surface in testing |
+| Extensions JSONB column | Custom fields become a real requirement at M5 |
+| Temporal pricing tables | Pricing module is built |
+| DocumentSequence table | Invoicing module is built |
+| Reference data tables | Each module needs them organically |
