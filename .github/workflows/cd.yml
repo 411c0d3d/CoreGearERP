@@ -23,7 +23,7 @@ jobs:
           dotnet-version: '10.0.x'
 
       - name: Publish
-        run: dotnet publish src/Host/CoreGearERP.Host/CoreGearERP.Host.csproj --configuration Release --output ./publish
+        run: dotnet publish src/server/CoreGearERP.Host/CoreGearERP.Host.csproj --configuration Release --output ./publish
 
       # TODO: add deployment target steps here (Docker push, SSH deploy, etc.)
       - name: Deploy (stub)
