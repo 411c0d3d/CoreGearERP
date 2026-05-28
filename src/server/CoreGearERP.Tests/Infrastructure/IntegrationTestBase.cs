@@ -38,14 +38,16 @@ public abstract class IntegrationTestBase : IAsyncLifetime
     /// </summary>
     public virtual async Task InitializeAsync()
     {
-        // Factory is created here so containers are guaranteed started by this point.
         _factory = new IntegrationTestWebFactory(_fixture);
 
-        await _factory.MigrateAsync();
-
+        // CreateClient() forces the host to start, which applies ConfigureAppConfiguration
+        // overrides. MigrateAsync must run after this so DbContexts resolve the
+        // Test-container connection string rather than the empty appsettings.json default.
         Client = _factory.CreateClient();
         Client.DefaultRequestHeaders.Add("Authorization", AuthHelper.BearerHeaderValue());
         Seed = new SeedHelper(Client);
+
+        await _factory.MigrateAsync();
 
         var response = await Client.DeleteAsync("/test/reset");
         response.EnsureSuccessStatusCode();
