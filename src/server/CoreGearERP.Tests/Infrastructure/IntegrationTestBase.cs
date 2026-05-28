@@ -5,8 +5,8 @@ using CoreGearERP.Tests.Infrastructure.Helpers;
 namespace CoreGearERP.Tests.Infrastructure;
 
 /// <summary>
-/// Base class for all integration tests. Provides a pre-authenticated HttpClient,
-/// runs EF migrations on first use, and resets data via /test/reset before each test class.
+/// Base class for all integration tests. Provides a pre-authenticated HttpClient
+/// and resets data via /test/reset before each test class.
 /// </summary>
 [Collection(IntegrationTestCollection.Names.Integration)]
 public abstract class IntegrationTestBase : IAsyncLifetime
@@ -34,14 +34,12 @@ public abstract class IntegrationTestBase : IAsyncLifetime
     }
 
     /// <summary>
-    /// Runs migrations and resets the database to a clean state before each test class.
+    /// Creates the test host and resets the database to a clean state before each test class.
     /// </summary>
     public virtual async Task InitializeAsync()
     {
         // Factory is created here so containers are guaranteed started by this point.
         _factory = new IntegrationTestWebFactory(_fixture);
-
-        await _factory.MigrateAsync();
 
         Client = _factory.CreateClient();
         Client.DefaultRequestHeaders.Add("Authorization", AuthHelper.BearerHeaderValue());
