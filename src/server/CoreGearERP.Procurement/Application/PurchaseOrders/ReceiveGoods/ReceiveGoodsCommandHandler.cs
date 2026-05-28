@@ -2,13 +2,11 @@ using CoreGearERP.Common.Application.Events;
 using CoreGearERP.Common.Application.Interfaces;
 using CoreGearERP.Common.Domain.Exceptions;
 using CoreGearERP.Common.Domain.ValueObjects;
-using CoreGearERP.Messaging.Infrastructure.Persistence;
 using CoreGearERP.Procurement.Domain.Entities;
 using CoreGearERP.Procurement.Domain.Enums;
 using CoreGearERP.Procurement.Infrastructure.Persistence;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Storage;
 
 namespace CoreGearERP.Procurement.Application.PurchaseOrders.ReceiveGoods;
 
@@ -20,7 +18,6 @@ namespace CoreGearERP.Procurement.Application.PurchaseOrders.ReceiveGoods;
 public class ReceiveGoodsCommandHandler : ICommandHandler<ReceiveGoodsCommand, Unit>
 {
     private readonly ProcurementDbContext _context;
-    private readonly OutboxDbContext _outboxContext;
     private readonly IInventoryCommandService _inventoryCommandService;
     private readonly IPublishEndpoint _publishEndpoint;
     private readonly ICurrentTenant _currentTenant;
@@ -30,21 +27,18 @@ public class ReceiveGoodsCommandHandler : ICommandHandler<ReceiveGoodsCommand, U
     /// Constructor with dependencies injected. Used for receiving goods against a purchase order line.
     /// </summary>
     /// <param name="context">Database context for procurement.</param>
-    /// <param name="outboxContext">Database context for the outbox pattern.</param>
     /// <param name="inventoryCommandService">Service to execute inventory commands, such as adding stock.</param>
     /// <param name="publishEndpoint">MassTransit publish endpoint for publishing domain events.</param>
     /// <param name="currentTenant">Service to access current tenant information.</param>
     /// <param name="currentUser">Service to access current user information.</param>
     public ReceiveGoodsCommandHandler(
         ProcurementDbContext context,
-        OutboxDbContext outboxContext,
         IInventoryCommandService inventoryCommandService,
         IPublishEndpoint publishEndpoint,
         ICurrentTenant currentTenant,
         ICurrentUser currentUser)
     {
         _context = context;
-        _outboxContext = outboxContext;
         _inventoryCommandService = inventoryCommandService;
         _publishEndpoint = publishEndpoint;
         _currentTenant = currentTenant;
@@ -86,7 +80,6 @@ public class ReceiveGoodsCommandHandler : ICommandHandler<ReceiveGoodsCommand, U
 
         var quantity = new Quantity(command.Quantity, line.QuantityOrdered.UnitCode);
 
-        // Update PO line and status -- not saved yet.
         line.Receive(quantity, _currentUser.UserId);
         order.UpdateReceiptStatus(_currentUser.UserId);
 
@@ -122,16 +115,6 @@ public class ReceiveGoodsCommandHandler : ICommandHandler<ReceiveGoodsCommand, U
             userId: _currentUser.UserId,
             cancellationToken: cancellationToken);
 
-        var connection = _context.Database.GetDbConnection();
-        if (connection.State != System.Data.ConnectionState.Open)
-            await connection.OpenAsync(cancellationToken);
-
-        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
-
-        await _context.Database.UseTransactionAsync(transaction, cancellationToken);
-        _outboxContext.Database.SetDbConnection(connection);
-        await _outboxContext.Database.UseTransactionAsync(transaction, cancellationToken);
-
         await _publishEndpoint.Publish(
             new GoodsReceivedEvent(
                 receipt.Id,
@@ -150,8 +133,6 @@ public class ReceiveGoodsCommandHandler : ICommandHandler<ReceiveGoodsCommand, U
             cancellationToken);
 
         await _context.SaveChangesAsync(cancellationToken);
-        await _outboxContext.SaveChangesAsync(cancellationToken);
-        await transaction.CommitAsync(cancellationToken);
 
         return Unit.Value;
     }

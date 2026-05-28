@@ -29,7 +29,7 @@ public class ShipOrderCommandHandler : ICommandHandler<ShipOrderCommand, Guid>
     /// Initializes handler with sales context, shared outbox context, and supporting services.
     /// </summary>
     /// <param name="context">The SalesDbContext for accessing sales data.</param>
-    /// <param name="outboxContext">The OutboxDbContext for managing the outbox pattern.</param>
+    /// <param name="outboxContext">Shared outbox database context for atomic event publishing.</param>
     /// <param name="inventoryCommandService">The service for executing inventory commands.</param>
     /// <param name="publishEndpoint">The MassTransit publish endpoint for publishing events.</param>
     /// <param name="currentTenant">The current tenant context for multi-tenancy support.</param>
@@ -122,13 +122,9 @@ public class ShipOrderCommandHandler : ICommandHandler<ShipOrderCommand, Guid>
 
         var connection = _context.Database.GetDbConnection();
         if (connection.State != System.Data.ConnectionState.Open)
+        {
             await connection.OpenAsync(cancellationToken);
-
-        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
-
-        await _context.Database.UseTransactionAsync(transaction, cancellationToken);
-        _outboxContext.Database.SetDbConnection(connection);
-        await _outboxContext.Database.UseTransactionAsync(transaction, cancellationToken);
+        }
 
         await _publishEndpoint.Publish(
             new SalesOrderShippedEvent(
@@ -144,7 +140,6 @@ public class ShipOrderCommandHandler : ICommandHandler<ShipOrderCommand, Guid>
 
         await _context.SaveChangesAsync(cancellationToken);
         await _outboxContext.SaveChangesAsync(cancellationToken);
-        await transaction.CommitAsync(cancellationToken);
 
         // Release reservations and remove stock per line.
         foreach (var lineDto in command.Lines)

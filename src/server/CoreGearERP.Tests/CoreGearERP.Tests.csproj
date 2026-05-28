@@ -4,12 +4,32 @@
         <TargetFramework>net10.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
-        <RootNamespace>CoreGearERP.Inventory.Tests</RootNamespace>
+        <RootNamespace>CoreGearERP.Tests</RootNamespace>
+        <IsPackable>false</IsPackable>
+        <IsTestProject>true</IsTestProject>
     </PropertyGroup>
 
     <ItemGroup>
-      <Folder Include="Application\" />
-      <Folder Include="Domain\" />
+        <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.*"/>
+        <PackageReference Include="Testcontainers.PostgreSql" Version="4.*"/>
+        <PackageReference Include="Testcontainers.RabbitMq" Version="4.*"/>
+        <PackageReference Include="xunit" Version="2.*"/>
+        <PackageReference Include="xunit.runner.visualstudio" Version="2.*">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.*"/>
+        <PackageReference Include="coverlet.collector" Version="6.*">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+        <PackageReference Include="FluentAssertions" Version="6.*"/>
+        <PackageReference Include="Microsoft.IdentityModel.Tokens" Version="8.*"/>
+        <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.*"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\CoreGearERP.Host\CoreGearERP.Host.csproj"/>
     </ItemGroup>
 
 </Project>

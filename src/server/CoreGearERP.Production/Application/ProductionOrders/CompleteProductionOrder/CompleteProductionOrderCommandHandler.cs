@@ -2,13 +2,11 @@ using CoreGearERP.Common.Application.Events;
 using CoreGearERP.Common.Application.Interfaces;
 using CoreGearERP.Common.Domain.Exceptions;
 using CoreGearERP.Common.Domain.ValueObjects;
-using CoreGearERP.Messaging.Infrastructure.Persistence;
 using CoreGearERP.Production.Domain.Entities;
 using CoreGearERP.Production.Domain.Enums;
 using CoreGearERP.Production.Infrastructure.Persistence;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Storage;
 
 namespace CoreGearERP.Production.Application.ProductionOrders.CompleteProductionOrder;
 
@@ -20,7 +18,6 @@ namespace CoreGearERP.Production.Application.ProductionOrders.CompleteProduction
 public class CompleteProductionOrderCommandHandler : ICommandHandler<CompleteProductionOrderCommand, Unit>
 {
     private readonly ProductionDbContext _context;
-    private readonly OutboxDbContext _outboxContext;
     private readonly IInventoryCommandService _inventoryCommandService;
     private readonly IPublishEndpoint _publishEndpoint;
     private readonly ICurrentTenant _currentTenant;
@@ -30,21 +27,18 @@ public class CompleteProductionOrderCommandHandler : ICommandHandler<CompletePro
     /// Initializes handler with production context, shared outbox context, and supporting services.
     /// </summary>
     /// <param name="context">The ProductionDbContext for accessing production data.</param>
-    /// <param name="outboxContext">The OutboxDbContext for managing the outbox pattern.</param>
     /// <param name="inventoryCommandService">The service for executing inventory commands.</param>
     /// <param name="publishEndpoint">The MassTransit publish endpoint for publishing events.</param>
     /// <param name="currentTenant">The current tenant context for multi-tenancy support.</param>
     /// <param name="currentUser">The current user context for auditing purposes.</param>
     public CompleteProductionOrderCommandHandler(
         ProductionDbContext context,
-        OutboxDbContext outboxContext,
         IInventoryCommandService inventoryCommandService,
         IPublishEndpoint publishEndpoint,
         ICurrentTenant currentTenant,
         ICurrentUser currentUser)
     {
         _context = context;
-        _outboxContext = outboxContext;
         _inventoryCommandService = inventoryCommandService;
         _publishEndpoint = publishEndpoint;
         _currentTenant = currentTenant;
@@ -139,16 +133,6 @@ public class CompleteProductionOrderCommandHandler : ICommandHandler<CompletePro
 
         order.Complete(actualQuantity, _currentUser.UserId);
 
-        var connection = _context.Database.GetDbConnection();
-        if (connection.State != System.Data.ConnectionState.Open)
-            await connection.OpenAsync(cancellationToken);
-
-        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
-
-        await _context.Database.UseTransactionAsync(transaction, cancellationToken);
-        _outboxContext.Database.SetDbConnection(connection);
-        await _outboxContext.Database.UseTransactionAsync(transaction, cancellationToken);
-
         await _publishEndpoint.Publish(
             new ProductionOrderCompletedEvent(
                 order.Id,
@@ -163,8 +147,6 @@ public class CompleteProductionOrderCommandHandler : ICommandHandler<CompletePro
             cancellationToken);
 
         await _context.SaveChangesAsync(cancellationToken);
-        await _outboxContext.SaveChangesAsync(cancellationToken);
-        await transaction.CommitAsync(cancellationToken);
 
         return Unit.Value;
     }

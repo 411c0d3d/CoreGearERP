@@ -31,8 +31,10 @@ public class GlobalExceptionHandler : IExceptionHandler
         {
             DomainException ex => (HttpStatusCode.BadRequest, ex.Message),
             NotFoundException ex => (HttpStatusCode.NotFound, ex.Message),
-            _ => (HttpStatusCode.InternalServerError, "An unexpected error occurred.")
-        };
+            _ => (HttpStatusCode.InternalServerError, 
+                httpContext.RequestServices.GetRequiredService<IWebHostEnvironment>().IsDevelopment()
+                    ? $"{exception.GetType().Name}: {exception.Message}"
+                    : "An unexpected error occurred.")        };
 
         if (statusCode == HttpStatusCode.InternalServerError)
         {
