@@ -26,11 +26,9 @@ public static class HostExtensions
         services.AddScoped<ICurrentTenant, CurrentTenantService>();
         services.AddScoped<ICurrentUser, CurrentUserService>();
 
-        var secretKey = configuration["Auth:SecretKey"]
-                        ?? throw new InvalidOperationException("Auth:SecretKey is not configured.");
-
-        var issuer = configuration["Auth:Issuer"];
-        var audience = configuration["Auth:Audience"];
+        var secretKey = configuration["Auth:SecretKey"] ?? string.Empty;
+        var issuer = configuration["Auth:Issuer"] ?? string.Empty;
+        var audience = configuration["Auth:Audience"] ?? string.Empty;
 
         services
             .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -44,8 +42,9 @@ public static class HostExtensions
                     ValidateIssuerSigningKey = true,
                     ValidIssuer = issuer,
                     ValidAudience = audience,
-                    IssuerSigningKey = new SymmetricSecurityKey(
-                        Encoding.UTF8.GetBytes(secretKey))
+                    IssuerSigningKey = string.IsNullOrEmpty(secretKey)
+                        ? null
+                        : new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey))
                 };
             });
 
