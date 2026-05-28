@@ -23,7 +23,6 @@ namespace CoreGearERP.Tests.Infrastructure;
 /// <summary>
 /// Configures the Host under test with Testcontainer connection strings,
 /// a deterministic JWT signing key, and Development environment so /test/reset is available.
-/// Runs schema creation and EF migrations on first use so the blank Postgres instance has the full schema.
 /// </summary>
 public sealed class IntegrationTestWebFactory : WebApplicationFactory<Program>
 {
@@ -32,7 +31,6 @@ public sealed class IntegrationTestWebFactory : WebApplicationFactory<Program>
     /// <summary>
     /// Initializes a new instance of the <see cref="IntegrationTestWebFactory"/> class.
     /// </summary>
-    /// <param name="fixture">The shared fixture providing Postgres and RabbitMQ container instances.</param>
     public IntegrationTestWebFactory(IntegrationTestFixture fixture)
     {
         _fixture = fixture;
@@ -61,8 +59,6 @@ public sealed class IntegrationTestWebFactory : WebApplicationFactory<Program>
 
         builder.ConfigureServices((_, services) =>
         {
-            // Replace gRPC-backed inventory services with real in-process implementations.
-            // The test host shares the same Postgres instance so direct implementations work correctly.
             ReplaceService<IInventoryCommandService, InventoryCommandService>(services);
             ReplaceService<IInventoryQueryService, InventoryQueryService>(services);
 
@@ -86,51 +82,63 @@ public sealed class IntegrationTestWebFactory : WebApplicationFactory<Program>
 
     /// <summary>
     /// Creates all required PostgreSQL schemas then runs EF Core migrations for every module DbContext.
-    /// Safe to call multiple times -- schema creation and migrations are idempotent.
+    /// Builds DbContexts directly from the fixture connection string to avoid dependency on the DI service provider.
     /// </summary>
     public async Task MigrateAsync()
     {
-        await CreateSchemasAsync();
+        var connectionString = _fixture.Postgres.ConnectionString;
 
-        using var scope = Services.CreateScope();
-        var sp = scope.ServiceProvider;
+        await CreateSchemasAsync(connectionString);
 
-        await sp.GetRequiredService<InventoryDbContext>().Database.MigrateAsync();
-        await sp.GetRequiredService<ProcurementDbContext>().Database.MigrateAsync();
-        await sp.GetRequiredService<ProductionDbContext>().Database.MigrateAsync();
-        await sp.GetRequiredService<SalesDbContext>().Database.MigrateAsync();
-        await sp.GetRequiredService<FinanceDbContext>().Database.MigrateAsync();
+        await MigrateDbContextAsync<InventoryDbContext>(connectionString);
+        await MigrateDbContextAsync<ProcurementDbContext>(connectionString);
+        await MigrateDbContextAsync<ProductionDbContext>(connectionString);
+        await MigrateDbContextAsync<SalesDbContext>(connectionString);
+        await MigrateDbContextAsync<FinanceDbContext>(connectionString);
+        await MigrateDbContextAsync<OutboxDbContext>(connectionString);
 
-        var outboxContext = sp.GetRequiredService<OutboxDbContext>();
-        await outboxContext.Database.MigrateAsync();
-
-        var tables = await outboxContext.Database
-            .SqlQueryRaw<string>("SELECT table_name FROM information_schema.tables WHERE table_schema = 'messaging'")
-            .ToListAsync();
-
-        if (tables.Count == 0)
+        await using var conn = new NpgsqlConnection(connectionString);
+        await conn.OpenAsync();
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'messaging'";
+        var count = (long)(await cmd.ExecuteScalarAsync())!;
+        if (count == 0)
         {
             throw new InvalidOperationException("Outbox migration failed -- no tables found in messaging schema.");
         }
     }
 
     /// <summary>
+    /// Runs EF Core migrations for a single DbContext using a direct connection string.
+    /// </summary>
+    private static async Task MigrateDbContextAsync<TContext>(string connectionString)
+        where TContext : DbContext
+    {
+        var options = new DbContextOptionsBuilder<TContext>()
+            .UseNpgsql(connectionString)
+            .Options;
+
+        await using var context = (TContext)Activator.CreateInstance(typeof(TContext), options)!;
+        await context.Database.MigrateAsync();
+    }
+
+    /// <summary>
     /// Creates the module-level PostgreSQL schemas if they do not already exist.
     /// </summary>
-    private async Task CreateSchemasAsync()
+    private static async Task CreateSchemasAsync(string connectionString)
     {
-        await using var conn = new NpgsqlConnection(_fixture.Postgres.ConnectionString);
+        await using var conn = new NpgsqlConnection(connectionString);
         await conn.OpenAsync();
 
         await using var cmd = conn.CreateCommand();
         cmd.CommandText = """
-            CREATE SCHEMA IF NOT EXISTS inventory;
-            CREATE SCHEMA IF NOT EXISTS procurement;
-            CREATE SCHEMA IF NOT EXISTS production;
-            CREATE SCHEMA IF NOT EXISTS sales;
-            CREATE SCHEMA IF NOT EXISTS finance;
-            CREATE SCHEMA IF NOT EXISTS messaging;
-            """;
+                          CREATE SCHEMA IF NOT EXISTS inventory;
+                          CREATE SCHEMA IF NOT EXISTS procurement;
+                          CREATE SCHEMA IF NOT EXISTS production;
+                          CREATE SCHEMA IF NOT EXISTS sales;
+                          CREATE SCHEMA IF NOT EXISTS finance;
+                          CREATE SCHEMA IF NOT EXISTS messaging;
+                          """;
 
         await cmd.ExecuteNonQueryAsync();
     }

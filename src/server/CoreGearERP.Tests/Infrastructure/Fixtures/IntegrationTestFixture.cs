@@ -5,7 +5,7 @@ namespace CoreGearERP.Tests.Infrastructure.Fixtures;
 
 /// <summary>
 /// Composes Postgres and RabbitMQ fixtures into a single collection-scoped fixture.
-/// Started once per xUnit collection; containers are shared across all test classes.
+/// Started once per xUnit collection; containers and migrations are shared across all test classes.
 /// </summary>
 public sealed class IntegrationTestFixture : IAsyncLifetime
 {
@@ -19,7 +19,6 @@ public sealed class IntegrationTestFixture : IAsyncLifetime
             RabbitMq.InitializeAsync());
 
         await using var factory = new IntegrationTestWebFactory(this);
-        _ = factory.CreateClient();
         await factory.MigrateAsync();
     }
 
