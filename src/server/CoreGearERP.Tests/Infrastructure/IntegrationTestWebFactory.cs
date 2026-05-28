@@ -90,12 +90,18 @@ public sealed class IntegrationTestWebFactory : WebApplicationFactory<Program>
 
         await CreateSchemasAsync(connectionString);
 
-        await MigrateDbContextAsync<InventoryDbContext>(connectionString);
-        await MigrateDbContextAsync<ProcurementDbContext>(connectionString);
-        await MigrateDbContextAsync<ProductionDbContext>(connectionString);
-        await MigrateDbContextAsync<SalesDbContext>(connectionString);
-        await MigrateDbContextAsync<FinanceDbContext>(connectionString);
-        await MigrateDbContextAsync<OutboxDbContext>(connectionString);
+        var tenant = new MigrationTenant();
+        await MigrateDbContextAsync<InventoryDbContext>(connectionString, tenant);
+        await MigrateDbContextAsync<ProcurementDbContext>(connectionString, tenant);
+        await MigrateDbContextAsync<ProductionDbContext>(connectionString, tenant);
+        await MigrateDbContextAsync<SalesDbContext>(connectionString, tenant);
+        await MigrateDbContextAsync<FinanceDbContext>(connectionString, tenant);
+
+        var outboxOptions = new DbContextOptionsBuilder<OutboxDbContext>()
+            .UseNpgsql(connectionString)
+            .Options;
+        await using var outboxContext = new OutboxDbContext(outboxOptions);
+        await outboxContext.Database.MigrateAsync();
 
         await using var conn = new NpgsqlConnection(connectionString);
         await conn.OpenAsync();
@@ -109,26 +115,17 @@ public sealed class IntegrationTestWebFactory : WebApplicationFactory<Program>
     }
 
     /// <summary>
-    /// Runs EF Core migrations for a single DbContext using a direct connection string.
+    /// Runs EF Core migrations for a DbContext that requires ICurrentTenant alongside DbContextOptions.
     /// </summary>
-    private static async Task MigrateDbContextAsync<TContext>(string connectionString)
+    private static async Task MigrateDbContextAsync<TContext>(string connectionString, ICurrentTenant tenant)
         where TContext : DbContext
     {
         var options = new DbContextOptionsBuilder<TContext>()
             .UseNpgsql(connectionString)
             .Options;
 
-        var tenant = new MigrationTenant();
         await using var context = (TContext)Activator.CreateInstance(typeof(TContext), options, tenant)!;
         await context.Database.MigrateAsync();
-    }
-
-    /// <summary>
-    /// Stub tenant used only during migrations where tenant context is not required.
-    /// </summary>
-    private sealed class MigrationTenant : ICurrentTenant
-    {
-        public Guid TenantId => Guid.Empty;
     }
 
     /// <summary>
@@ -141,13 +138,13 @@ public sealed class IntegrationTestWebFactory : WebApplicationFactory<Program>
 
         await using var cmd = conn.CreateCommand();
         cmd.CommandText = """
-                          CREATE SCHEMA IF NOT EXISTS inventory;
-                          CREATE SCHEMA IF NOT EXISTS procurement;
-                          CREATE SCHEMA IF NOT EXISTS production;
-                          CREATE SCHEMA IF NOT EXISTS sales;
-                          CREATE SCHEMA IF NOT EXISTS finance;
-                          CREATE SCHEMA IF NOT EXISTS messaging;
-                          """;
+            CREATE SCHEMA IF NOT EXISTS inventory;
+            CREATE SCHEMA IF NOT EXISTS procurement;
+            CREATE SCHEMA IF NOT EXISTS production;
+            CREATE SCHEMA IF NOT EXISTS sales;
+            CREATE SCHEMA IF NOT EXISTS finance;
+            CREATE SCHEMA IF NOT EXISTS messaging;
+            """;
 
         await cmd.ExecuteNonQueryAsync();
     }
@@ -166,5 +163,13 @@ public sealed class IntegrationTestWebFactory : WebApplicationFactory<Program>
         }
 
         services.AddScoped<TService, TImplementation>();
+    }
+
+    /// <summary>
+    /// Stub tenant used only during migrations where tenant context is not required.
+    /// </summary>
+    private sealed class MigrationTenant : ICurrentTenant
+    {
+        public Guid TenantId => Guid.Empty;
     }
 }
