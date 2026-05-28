@@ -1,3 +1,4 @@
+using CoreGearERP.Tests.Infrastructure;
 using Xunit;
 
 namespace CoreGearERP.Tests.Infrastructure.Fixtures;
@@ -16,6 +17,10 @@ public sealed class IntegrationTestFixture : IAsyncLifetime
         await Task.WhenAll(
             Postgres.InitializeAsync(),
             RabbitMq.InitializeAsync());
+
+        await using var factory = new IntegrationTestWebFactory(this);
+        _ = factory.CreateClient();
+        await factory.MigrateAsync();
     }
 
     public async Task DisposeAsync()

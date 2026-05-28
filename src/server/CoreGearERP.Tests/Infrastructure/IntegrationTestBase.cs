@@ -47,8 +47,6 @@ public abstract class IntegrationTestBase : IAsyncLifetime
         Client.DefaultRequestHeaders.Add("Authorization", AuthHelper.BearerHeaderValue());
         Seed = new SeedHelper(Client);
 
-        await _factory.MigrateAsync();
-
         var response = await Client.DeleteAsync("/test/reset");
         response.EnsureSuccessStatusCode();
     }
