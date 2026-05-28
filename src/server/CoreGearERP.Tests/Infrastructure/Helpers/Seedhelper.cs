@@ -12,21 +12,14 @@ public sealed class SeedHelper
     /// <summary>
     /// Initializes a new instance of the <see cref="SeedHelper"/> class.
     /// </summary>
-    /// <param name="client">The authenticated HTTP client to use for seeding.</param>
     public SeedHelper(HttpClient client)
     {
         _client = client;
     }
 
-    // Inventory
-
     /// <summary>
     /// Creates a product and returns its id.
     /// </summary>
-    /// <param name="code">Unique product code.</param>
-    /// <param name="name">Display name of the product.</param>
-    /// <param name="unitCode">Unit of measure code.</param>
-    /// <param name="description">Optional description.</param>
     public async Task<Guid> CreateProductAsync(string code, string name, string unitCode, string? description = null)
     {
         var response = await _client.PostAsJsonAsync("/inventory/products", new
@@ -37,44 +30,33 @@ public sealed class SeedHelper
             description = description ?? string.Empty,
         });
 
-        response.EnsureSuccessStatusCode();
+        await EnsureSuccessAsync(response, "CreateProduct");
         return (await response.Content.ReadFromJsonAsync<IdResponse>())!.Id;
     }
 
     /// <summary>
     /// Creates a warehouse and returns its id.
     /// </summary>
-    /// <param name="code">Unique warehouse code.</param>
-    /// <param name="name">Display name of the warehouse.</param>
-    /// <param name="location">Physical location description.</param>
     public async Task<Guid> CreateWarehouseAsync(string code, string name, string location)
     {
         var response = await _client.PostAsJsonAsync("/inventory/warehouses", new { code, name, location });
-        response.EnsureSuccessStatusCode();
+        await EnsureSuccessAsync(response, "CreateWarehouse");
         return (await response.Content.ReadFromJsonAsync<IdResponse>())!.Id;
     }
 
     /// <summary>
     /// Creates a stock item and returns its id.
     /// </summary>
-    /// <param name="productId">Id of the product to stock.</param>
-    /// <param name="warehouseId">Id of the warehouse to stock the product in.</param>
-    /// <param name="unitCode">Unit of measure code.</param>
     public async Task<Guid> CreateStockItemAsync(Guid productId, Guid warehouseId, string unitCode)
     {
         var response = await _client.PostAsJsonAsync("/inventory/stock-items", new { productId, warehouseId, unitCode });
-        response.EnsureSuccessStatusCode();
+        await EnsureSuccessAsync(response, "CreateStockItem");
         return (await response.Content.ReadFromJsonAsync<IdResponse>())!.Id;
     }
-
-    // Procurement
 
     /// <summary>
     /// Creates a supplier and returns its id.
     /// </summary>
-    /// <param name="code">Unique supplier code.</param>
-    /// <param name="name">Display name of the supplier.</param>
-    /// <param name="contactEmail">Primary contact email address.</param>
     public async Task<Guid> CreateSupplierAsync(string code, string name, string contactEmail)
     {
         var response = await _client.PostAsJsonAsync("/procurement/suppliers", new
@@ -86,21 +68,13 @@ public sealed class SeedHelper
             address = "Teststraße 1, 10115 Berlin",
         });
 
-        response.EnsureSuccessStatusCode();
+        await EnsureSuccessAsync(response, "CreateSupplier");
         return (await response.Content.ReadFromJsonAsync<IdResponse>())!.Id;
     }
 
     /// <summary>
     /// Creates a purchase order with a single line and returns its id.
     /// </summary>
-    /// <param name="supplierId">Id of the supplier.</param>
-    /// <param name="productId">Id of the product to order.</param>
-    /// <param name="productCode">Product code.</param>
-    /// <param name="productName">Product display name.</param>
-    /// <param name="quantity">Quantity to order.</param>
-    /// <param name="unitCode">Unit of measure code.</param>
-    /// <param name="unitPrice">Price per unit.</param>
-    /// <param name="currencyCode">Currency code, defaults to EUR.</param>
     public async Task<Guid> CreatePurchaseOrderAsync(
         Guid supplierId,
         Guid productId,
@@ -121,27 +95,22 @@ public sealed class SeedHelper
             },
         });
 
-        response.EnsureSuccessStatusCode();
+        await EnsureSuccessAsync(response, "CreatePurchaseOrder");
         return (await response.Content.ReadFromJsonAsync<IdResponse>())!.Id;
     }
 
     /// <summary>
     /// Confirms a purchase order.
     /// </summary>
-    /// <param name="purchaseOrderId">Id of the purchase order to confirm.</param>
     public async Task ConfirmPurchaseOrderAsync(Guid purchaseOrderId)
     {
         var response = await _client.PutAsync($"/procurement/orders/{purchaseOrderId}/confirm", null);
-        response.EnsureSuccessStatusCode();
+        await EnsureSuccessAsync(response, "ConfirmPurchaseOrder");
     }
 
     /// <summary>
     /// Receives goods against a purchase order line.
     /// </summary>
-    /// <param name="purchaseOrderId">Id of the purchase order.</param>
-    /// <param name="purchaseOrderLineId">Id of the line to receive against.</param>
-    /// <param name="warehouseId">Id of the destination warehouse.</param>
-    /// <param name="quantity">Quantity being received.</param>
     public async Task ReceiveGoodsAsync(Guid purchaseOrderId, Guid purchaseOrderLineId, Guid warehouseId, decimal quantity)
     {
         var response = await _client.PostAsJsonAsync($"/procurement/orders/{purchaseOrderId}/receive", new
@@ -152,16 +121,12 @@ public sealed class SeedHelper
             quantity,
         });
 
-        response.EnsureSuccessStatusCode();
+        await EnsureSuccessAsync(response, "ReceiveGoods");
     }
-
-    // Production
 
     /// <summary>
     /// Creates a work center and returns its id.
     /// </summary>
-    /// <param name="code">Unique work center code.</param>
-    /// <param name="name">Display name of the work center.</param>
     public async Task<Guid> CreateWorkCenterAsync(string code, string name)
     {
         var response = await _client.PostAsJsonAsync("/production/work-centers", new
@@ -172,21 +137,13 @@ public sealed class SeedHelper
             description = "Integration test work center",
         });
 
-        response.EnsureSuccessStatusCode();
+        await EnsureSuccessAsync(response, "CreateWorkCenter");
         return (await response.Content.ReadFromJsonAsync<IdResponse>())!.Id;
     }
 
     /// <summary>
     /// Creates a bill of materials with a single component line and returns its id.
     /// </summary>
-    /// <param name="finishedProductId">Id of the finished product.</param>
-    /// <param name="finishedProductCode">Code of the finished product.</param>
-    /// <param name="finishedProductName">Name of the finished product.</param>
-    /// <param name="componentProductId">Id of the component product.</param>
-    /// <param name="componentProductCode">Code of the component product.</param>
-    /// <param name="componentProductName">Name of the component product.</param>
-    /// <param name="componentQuantity">Quantity of component required per finished unit.</param>
-    /// <param name="componentUnitCode">Unit of measure for the component.</param>
     public async Task<Guid> CreateBillOfMaterialsAsync(
         Guid finishedProductId,
         string finishedProductCode,
@@ -217,17 +174,13 @@ public sealed class SeedHelper
             },
         });
 
-        response.EnsureSuccessStatusCode();
+        await EnsureSuccessAsync(response, "CreateBillOfMaterials");
         return (await response.Content.ReadFromJsonAsync<IdResponse>())!.Id;
     }
 
     /// <summary>
     /// Creates a production order and returns its id.
     /// </summary>
-    /// <param name="billOfMaterialsId">Id of the bill of materials to produce against.</param>
-    /// <param name="workCenterId">Id of the work center to assign.</param>
-    /// <param name="plannedQuantity">Planned quantity to produce.</param>
-    /// <param name="unitCode">Unit of measure for the finished product.</param>
     public async Task<Guid> CreateProductionOrderAsync(
         Guid billOfMaterialsId,
         Guid workCenterId,
@@ -243,16 +196,13 @@ public sealed class SeedHelper
             notes = "Integration test production order",
         });
 
-        response.EnsureSuccessStatusCode();
+        await EnsureSuccessAsync(response, "CreateProductionOrder");
         return (await response.Content.ReadFromJsonAsync<IdResponse>())!.Id;
     }
 
     /// <summary>
-    /// Confirms a production order, assigning the component to the given warehouse for sourcing.
+    /// Confirms a production order.
     /// </summary>
-    /// <param name="productionOrderId">Id of the production order to confirm.</param>
-    /// <param name="componentProductId">Id of the component product to assign.</param>
-    /// <param name="warehouseId">Id of the warehouse the component will be sourced from.</param>
     public async Task ConfirmProductionOrderAsync(Guid productionOrderId, Guid componentProductId, Guid warehouseId)
     {
         var response = await _client.PutAsJsonAsync($"/production/orders/{productionOrderId}/confirm", new
@@ -264,31 +214,21 @@ public sealed class SeedHelper
             },
         });
 
-        if (!response.IsSuccessStatusCode)
-        {
-            var body = await response.Content.ReadAsStringAsync();
-            throw new HttpRequestException($"ConfirmProductionOrder {(int)response.StatusCode}: {body}");
-        }
+        await EnsureSuccessAsync(response, "ConfirmProductionOrder");
     }
 
     /// <summary>
     /// Starts a production order.
     /// </summary>
-    /// <param name="productionOrderId">Id of the production order to start.</param>
     public async Task StartProductionOrderAsync(Guid productionOrderId)
     {
         var response = await _client.PutAsync($"/production/orders/{productionOrderId}/start", null);
-        response.EnsureSuccessStatusCode();
+        await EnsureSuccessAsync(response, "StartProductionOrder");
     }
 
     /// <summary>
-    /// Completes a production order, consuming components and delivering finished goods to the given warehouse.
+    /// Completes a production order.
     /// </summary>
-    /// <param name="productionOrderId">Id of the production order to complete.</param>
-    /// <param name="finishedGoodsWarehouseId">Id of the warehouse to deliver finished goods to.</param>
-    /// <param name="actualQuantity">Actual quantity produced.</param>
-    /// <param name="componentProductId">Id of the component product consumed.</param>
-    /// <param name="componentWarehouseId">Id of the warehouse the component was consumed from.</param>
     public async Task CompleteProductionOrderAsync(
         Guid productionOrderId,
         Guid finishedGoodsWarehouseId,
@@ -307,21 +247,12 @@ public sealed class SeedHelper
             },
         });
 
-        if (!response.IsSuccessStatusCode)
-        {
-            var body = await response.Content.ReadAsStringAsync();
-            throw new HttpRequestException($"CompleteProductionOrder {(int)response.StatusCode}: {body}");
-        }
+        await EnsureSuccessAsync(response, "CompleteProductionOrder");
     }
-
-    // Sales
 
     /// <summary>
     /// Creates a customer and returns its id.
     /// </summary>
-    /// <param name="code">Unique customer code.</param>
-    /// <param name="name">Display name of the customer.</param>
-    /// <param name="contactEmail">Primary contact email address.</param>
     public async Task<Guid> CreateCustomerAsync(string code, string name, string contactEmail)
     {
         var response = await _client.PostAsJsonAsync("/sales/customers", new
@@ -333,21 +264,13 @@ public sealed class SeedHelper
             address = "Kundenstraße 1, 10115 Berlin",
         });
 
-        response.EnsureSuccessStatusCode();
+        await EnsureSuccessAsync(response, "CreateCustomer");
         return (await response.Content.ReadFromJsonAsync<IdResponse>())!.Id;
     }
 
     /// <summary>
     /// Creates a sales order with a single line and returns its id.
     /// </summary>
-    /// <param name="customerId">Id of the customer.</param>
-    /// <param name="productId">Id of the product to order.</param>
-    /// <param name="productCode">Product code.</param>
-    /// <param name="productName">Product display name.</param>
-    /// <param name="quantity">Quantity ordered.</param>
-    /// <param name="unitCode">Unit of measure code.</param>
-    /// <param name="unitPrice">Price per unit.</param>
-    /// <param name="currencyCode">Currency code, defaults to EUR.</param>
     public async Task<Guid> CreateSalesOrderAsync(
         Guid customerId,
         Guid productId,
@@ -368,15 +291,13 @@ public sealed class SeedHelper
             },
         });
 
-        response.EnsureSuccessStatusCode();
+        await EnsureSuccessAsync(response, "CreateSalesOrder");
         return (await response.Content.ReadFromJsonAsync<IdResponse>())!.Id;
     }
 
     /// <summary>
     /// Confirms a sales order, reserving stock from the given warehouse.
     /// </summary>
-    /// <param name="salesOrderId">Id of the sales order to confirm.</param>
-    /// <param name="warehouseId">Id of the warehouse to reserve stock from.</param>
     public async Task ConfirmSalesOrderAsync(Guid salesOrderId, Guid warehouseId)
     {
         var response = await _client.PutAsJsonAsync($"/sales/orders/{salesOrderId}/confirm", new
@@ -385,19 +306,12 @@ public sealed class SeedHelper
             warehouseId,
         });
 
-        response.EnsureSuccessStatusCode();
+        await EnsureSuccessAsync(response, "ConfirmSalesOrder");
     }
 
     /// <summary>
     /// Ships a sales order line and returns the shipment id.
     /// </summary>
-    /// <param name="salesOrderId">Id of the sales order to ship.</param>
-    /// <param name="salesOrderLineId">Id of the sales order line to ship.</param>
-    /// <param name="productId">Id of the product being shipped.</param>
-    /// <param name="productCode">Product code.</param>
-    /// <param name="warehouseId">Id of the warehouse to ship from.</param>
-    /// <param name="quantity">Quantity to ship.</param>
-    /// <param name="unitCode">Unit of measure code.</param>
     public async Task<Guid> ShipSalesOrderAsync(
         Guid salesOrderId,
         Guid salesOrderLineId,
@@ -418,8 +332,20 @@ public sealed class SeedHelper
             },
         });
 
-        response.EnsureSuccessStatusCode();
+        await EnsureSuccessAsync(response, "ShipSalesOrder");
         return (await response.Content.ReadFromJsonAsync<IdResponse>())!.Id;
+    }
+
+    /// <summary>
+    /// Throws with full response body on non-success status codes.
+    /// </summary>
+    private static async Task EnsureSuccessAsync(HttpResponseMessage response, string operation)
+    {
+        if (!response.IsSuccessStatusCode)
+        {
+            var body = await response.Content.ReadAsStringAsync();
+            throw new HttpRequestException($"{operation} failed {(int)response.StatusCode}: {body}");
+        }
     }
 
     private sealed record IdResponse(Guid Id);
