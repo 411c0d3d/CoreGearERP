@@ -2,6 +2,79 @@
 
 ---
 
+## What CoreGearERP Is
+
+CoreGearERP is a manufacturing ERP platform. It implements the operational core of a mid-market ERP system covering the three foundational business cycles found in any manufacturing company -- Procure-to-Pay, Plan-to-Produce, and Order-to-Cash.
+
+The goal is to understand how these cycles interact at the domain level, what architectural pressure points emerge as the system grows, and how to make deliberate decisions about patterns and tradeoffs rather than following templates blindly.
+
+---
+
+## The Three Operational Cycles
+
+### Procure-to-Pay
+
+A company needs raw materials. It raises a purchase order against a supplier, receives the goods into a warehouse, and records the cost.
+
+```
+Supplier --> PurchaseOrder --> GoodsReceipt --> StockMovement (GoodsReceipt)
+                                           --> CostEntry (Finance)
+```
+
+Modules involved: **Procurement**, **Inventory**, **Finance**
+
+---
+
+### Plan-to-Produce
+
+Raw materials are consumed to produce finished goods. A Bill of Materials defines what components are needed. A production order consumes components from inventory and delivers finished goods back into inventory.
+
+```
+BillOfMaterials --> ProductionOrder --> StockMovement (GoodsIssue, components consumed)
+                                   --> StockMovement (ProductionReceipt, finished goods added)
+                                   --> CostEntry (Finance)
+```
+
+Modules involved: **Production**, **Inventory**, **Finance**
+
+---
+
+### Order-to-Cash
+
+A customer places an order. Stock is reserved. Goods are shipped. The reservation is released, stock is reduced, and the cost is recorded.
+
+```
+Customer --> SalesOrder --> StockReservation
+                       --> Shipment --> StockMovement (SalesShipment)
+                                   --> CostEntry (Finance)
+```
+
+Modules involved: **Sales**, **Inventory**, **Finance**
+
+---
+
+## How the Modules Relate
+
+```
+Procurement --> Inventory --> Production --> Sales
+                    |                          |
+                    └──────── Finance ─────────┘
+```
+
+**Inventory** is the central module. Every other module reads from or writes to it. It is the single source of truth for stock levels, reservations, and movements.
+
+**Procurement** brings stock in via goods receipts.
+
+**Production** consumes stock as components and returns finished goods. It depends on Inventory for both component availability checks and stock movements.
+
+**Sales** reserves stock on order confirmation and reduces it on shipment. It depends on Inventory for reservation and release.
+
+**Finance** records the cost of every significant event across all three cycles. It depends on nothing -- it only receives events from the operational modules via RabbitMQ.
+
+This deep interdependency between modules -- particularly the central role of Inventory -- is the primary motivation for the monolith-first architecture described in ADR-001. Forcing these modules into separate services before the domain boundaries are fully understood would introduce distributed transaction complexity that obscures rather than clarifies the business problem.
+
+---
+
 ## ADR-000: Repository and Solution Structure
 
 **Status:** Accepted
@@ -33,15 +106,14 @@ CoreGearERP/
       CoreGearERP.Production/
       CoreGearERP.Sales/
       CoreGearERP.Finance/
+      CoreGearERP.Tests/        -- integration tests, Testcontainers + WebApplicationFactory
     client/
-      coregear-ui/              -- Angular SPA, scaffolded at M6
-  tests/
-    CoreGearERP.Tests/          -- E2E HTTP flow tests
+      coregear-ui/              -- Angular SPA, scaffolded at M7
 ```
 
-Note: `client/` does not exist yet. Separate xUnit test projects per module will be added at M6 when integration tests are written with Testcontainers. Angular UI scaffold moves to M7. Inventory extraction moves to M8.
+Note: `client/` does not exist yet. Integration tests live in `CoreGearERP.Tests` under `src/server/` using Testcontainers and `WebApplicationFactory`. See ADR-012 for testing decisions and known constraints. Angular UI scaffold moves to M7. Inventory extraction moves to M8.
 
-**Why:** One repo means one PR for changes that touch both backend and frontend. No cross-repo coordination overhead. Simpler for a single developer or small team. At M7 when Inventory is extracted it stays in the same repo as a second server project -- still one repo, now two deployables.
+**Why:** One repo means one PR for changes that touch both backend and frontend. No cross-repo coordination overhead. Simpler for a single developer or small team. At M8 when Inventory is extracted it stays in the same repo as a second server project -- still one repo, now two deployables.
 
 **Tradeoff:** As the team grows, a monorepo requires discipline around ownership boundaries. Tooling like Nx can help at that point but is not needed now.
 
@@ -53,7 +125,7 @@ Note: `client/` does not exist yet. Separate xUnit test projects per module will
 
 **See also:** [Domain model](Domain%20model.md) -- module entity lists and folder structure examples
 
-**Decision:** One deployable host. Modules are separate class libraries within a single host. Inventory is extracted to a standalone service at M7.
+**Decision:** One deployable host. Modules are separate class libraries within a single host. Inventory is extracted to a standalone service at M8.
 
 **Why:** The bounded contexts are deeply interrelated. Production depends on Inventory, Finance depends on Production. Forcing them into separate services before understanding the domain creates distributed transaction complexity too early. A modular monolith enforces the same boundary discipline at the code level without the operational overhead.
 
@@ -86,7 +158,7 @@ Note: `client/` does not exist yet. Separate xUnit test projects per module will
 
 **Why Pragmatic DDD and not full DDD:**
 
-Full DDD earns its complexity when the domain is genuinely deep, the team is large, and the system will be maintained for years with changing requirements. CoreGearERP is a learning platform. Applying full DDD ceremony would mean writing more infrastructure than domain logic and spending more time on patterns than on understanding the actual business problem.
+Full DDD earns its complexity when the domain is genuinely deep, the team is large, and the system will be maintained for years with changing requirements. CoreGearERP is a platform. Applying full DDD ceremony would mean writing more infrastructure than domain logic and spending more time on patterns than on understanding the actual business problem.
 
 The goal is to understand pressure points, not to produce a textbook DDD implementation.
 
@@ -270,7 +342,7 @@ CoreGearERP.Host/
 ### Folder Creation Rules
 
 - `ValueObjects/` and `Exceptions/` are not created inside modules by default -- add them only when a module needs something not covered by Common
-- `gRPC/` only exists in Inventory at M4. Production may add it at M7 extraction
+- `gRPC/` only exists in Inventory at M4. Production may add it at M8 extraction
 - `Messaging/` is added per module at M5 when the module publishes or consumes events
 - `Migrations/` stays empty until the first EF Core migration at end of M1
 - A new feature always gets a Command or Query file, never logic added to an existing handler
@@ -285,7 +357,7 @@ CoreGearERP.Host/
 
 **Decision:** All synchronous cross-module calls use gRPC with Protobuf contracts. No direct DbContext sharing across module boundaries under any circumstance.
 
-**Why:** Protobuf contracts are typed and versioned. Breaking changes are caught at compile time. REST with JSON does not give you this. When Inventory is extracted at M7 the contracts remain unchanged -- only the transport changes from in-process to network.
+**Why:** Protobuf contracts are typed and versioned. Breaking changes are caught at compile time. REST with JSON does not give you this. When Inventory is extracted at M8 the contracts remain unchanged -- only the transport changes from in-process to network.
 
 **M4 implementation:**
 
@@ -349,7 +421,7 @@ Production confirmation requires explicit `ComponentWarehouses` per BOM line wit
 
 **Why RabbitMQ:** Self-hosted means full visibility into every part of the messaging infrastructure. Free, mature, and widely used. The management UI at port 15672 gives full visibility into queues, exchanges, and dead letters during development. No cloud vendor dependency for the message broker.
 
-**Why MassTransit:** Handles consumer registration, retry policies, dead letter routing, and the outbox pattern without boilerplate. The abstraction means the broker can be swapped to Azure Service Bus at M7 extraction with a configuration change only -- no consumer code changes.
+**Why MassTransit:** Handles consumer registration, retry policies, dead letter routing, and the outbox pattern without boilerplate. The abstraction means the broker can be swapped to Azure Service Bus at M8 extraction with a configuration change only -- no consumer code changes.
 
 **Why the Outbox pattern:** Without it, a state change can be committed to the database but the corresponding event can fail to publish if the broker is down. The outbox writes the event to the database in the same transaction as the state change. A background worker dispatches it when the broker is available. Events are never lost.
 
@@ -475,7 +547,7 @@ The `DELETE /test/reset` endpoint seeds one default open period covering the cur
 
 **Why MediatR was removed:**
 
-MediatR 12 introduced a commercial license requirement for production use. For a learning project this is an unnecessary cost. Beyond licensing, MediatR adds an abstraction layer that can be replaced with a small amount of code that we own and understand completely.
+MediatR 12 introduced a commercial license requirement for production use. For a barebone project this is an unnecessary cost. Beyond licensing, MediatR adds an abstraction layer that can be replaced with a small amount of code that we own and understand completely.
 
 **What the custom dispatcher does:**
 
@@ -664,7 +736,7 @@ This is a v8 architectural constraint, not a misconfiguration. The v8 outbox was
 
 **Why not upgrade to MassTransit v9**
 
-MassTransit v9 explicitly supports multiple DbContext outbox registrations and resolves this limitation cleanly. The upgrade path is straightforward. However v9 requires a commercial license for production use. The same licensing dynamic that drove the removal of MediatR (see [ADR-009](ADR.md#adr-009-custom-dispatcher-replacing-mediatr)) applies here. CoreGearERP is a learning platform and this cost is not justified.
+MassTransit v9 explicitly supports multiple DbContext outbox registrations and resolves this limitation cleanly. The upgrade path is straightforward. However v9 requires a commercial license for production use. The same licensing dynamic that drove the removal of MediatR (see [ADR-009](ADR.md#adr-009-custom-dispatcher-replacing-mediatr)) applies here. CoreGearERP is a platform and this cost is not justified.
 
 **What was tried before the shared context decision**
 
@@ -675,6 +747,123 @@ The shared `OutboxDbContext` is the minimal change that satisfies all constraint
 **The `GetDbTransaction()` gotcha**
 
 `NpgsqlTransaction` is not the same type as `DbTransaction`. EF Core's `UseTransaction(DbTransaction)` overload requires the base type. Passing the `NpgsqlTransaction` instance directly may compile but will silently fail to enlist the context in the transaction depending on the EF Core version. Always call `.GetDbTransaction()` explicitly. This is reflected in the code pattern above.
+
+---
+
+## ADR-012: Integration Testing Strategy and Known Constraints
+
+**Status:** Accepted -- Implemented at M6
+
+**See also:** ADR-011 -- shared OutboxDbContext | ADR-005 -- outbox pattern | ADR-004 -- gRPC for cross-module calls
+
+**Decision:** All automated tests are HTTP-level integration tests using xUnit, `WebApplicationFactory<Program>`, and Testcontainers. No unit tests. No mocked repositories. The test suite exercises the full request pipeline against real Postgres and RabbitMQ containers.
+
+---
+
+### Test Architecture
+
+**Single test project:** `CoreGearERP.Tests` under `src/server/`. One project covers all modules. Separate per-module test projects were considered but rejected -- the value of integration tests comes from exercising cross-module flows, not from isolating each module independently.
+
+**Collection-scoped containers:** Postgres and RabbitMQ Testcontainers are started once per xUnit collection via `IntegrationTestFixture`. All test classes share the same containers. This avoids the cost of starting fresh containers per test class while still having full isolation through the `/test/reset` endpoint.
+
+**Per-test data isolation:** `DELETE /test/reset` truncates all module tables and re-seeds one open financial period before each test class. This gives each test class a clean slate without container restart overhead.
+
+**Migrations at collection startup:** EF Core migrations for all module DbContexts run once in `IntegrationTestFixture.InitializeAsync`, directly against the Testcontainer Postgres connection, bypassing the DI service provider. This was necessary because `WebApplicationFactory.Services` reads `appsettings.json` before the in-memory configuration overrides are applied, resulting in an empty connection string at DI build time.
+
+**gRPC replaced in-process:** `IntegrationTestWebFactory` replaces the gRPC-backed `IInventoryCommandService` and `IInventoryQueryService` registrations with the direct in-process `InventoryCommandService` and `InventoryQueryService`. The test host shares one Postgres instance across all modules so the direct implementations work correctly without a running gRPC endpoint.
+
+**JWT signed with a test key:** `HostExtensions` registers JWT bearer authentication reading `Auth:SecretKey` from configuration at service registration time. The test factory overrides this via `PostConfigure<JwtBearerOptions>` with a deterministic test signing key. All test requests are authenticated with tokens signed by `AuthHelper` using the same key.
+
+---
+
+### Issues Found During Implementation and Their Architectural Implications
+
+**Issue 1: WebApplicationFactory configuration override ordering**
+
+`ConfigureAppConfiguration` callbacks are appended to the existing configuration source list. On CI, `appsettings.json` contains an empty `Auth:SecretKey`. The `AddHost` extension reads this key eagerly at service registration time and uses it to build the `SymmetricSecurityKey` for JWT bearer. Because the in-memory test overrides are appended after the json files, they were visible to `IConfiguration` but the key had already been consumed before the override was applied.
+
+Fix: explicitly re-add the json sources before the in-memory collection inside `ConfigureAppConfiguration` so the in-memory values are the last -- and therefore winning -- source. `PostConfigure<JwtBearerOptions>` then replaces the `TokenValidationParameters` with the test key regardless of what `AddHost` registered. `AddHost` was also changed to fall back to an empty key rather than throwing, so the host starts successfully even if the key is absent at registration time.
+
+Architectural implication: `AddHost` reading configuration eagerly at registration time is a tight coupling between the service registration order and the configuration source order. This is acceptable in production but brittle in test environments where configuration is injected late. If `AddHost` is ever refactored, prefer `IOptions<T>` patterns that resolve lazily at runtime over reading configuration values into closed-over variables during service registration.
+
+---
+
+**Issue 2: DbContext constructors require ICurrentTenant**
+
+All module DbContexts take `ICurrentTenant` as a constructor argument alongside `DbContextOptions<T>`. `Activator.CreateInstance` with only `DbContextOptions<T>` throws `MissingMethodException`. `OutboxDbContext` takes only `DbContextOptions<OutboxDbContext>` -- no tenant argument.
+
+Fix: `IntegrationTestWebFactory.MigrateAsync` bypasses the DI service provider entirely. It instantiates each module DbContext directly using `Activator.CreateInstance(typeof(TContext), options, tenant)` with a stub `MigrationTenant : ICurrentTenant` returning `Guid.Empty`. `OutboxDbContext` is instantiated separately with only its options. Migrations are idempotent -- running them with a stub tenant has no data consequences.
+
+Architectural implication: none for production. The `ICurrentTenant` constructor dependency on DbContexts is correct -- it enforces tenant scoping at the EF Core query level. The migration workaround is test infrastructure only and does not affect runtime behavior.
+
+---
+
+**Issue 3: MassTransit outbox cross-context transaction constraint**
+
+`ShipOrderCommandHandler`, `ReceiveGoodsCommandHandler`, and `CompleteProductionOrderCommandHandler` all write to both their module DbContext and `OutboxDbContext` within an explicit `NpgsqlTransaction`. This works correctly in production and locally. On CI, the outbox save fails intermittently -- the two contexts are on separate connection pool entries and the explicit transaction cannot reliably enlist both on a fresh Testcontainer Postgres instance.
+
+This is a direct consequence of the shared `OutboxDbContext` architecture described in ADR-011. In production the outbox relay delivers messages asynchronously regardless of connection affinity. In a test host the same connection pool behavior is not guaranteed.
+
+Three tests cover outbox-driven flows and are currently skipped in CI:
+
+- `ShipSalesOrder_StockReducedAndFinanceCostEntryCreatedViaOutbox`
+- `ReceiveGoods_FinanceCostEntryCreatedViaOutbox`
+- `CompleteProductionOrder_FinanceCostEntryCreatedViaOutbox`
+
+All three pass locally where connection pool behavior differs from a fresh container.
+
+Architectural implication: this is a real architectural constraint, not a test deficiency. The shared `OutboxDbContext` pattern requires all publishing contexts to share a database connection for the explicit transaction to be reliable across environments. Two paths forward:
+
+| Option                     | Effort   | Description                                                                                                                                                                                                                                                                                                                   |
+|----------------------------|----------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Shared `NpgsqlDataSource`  | Moderate | Register a singleton `NpgsqlDataSource` and configure all DbContexts to use it via `UseNpgsql(dataSource)`. All contexts share one connection pool entry. MassTransit can reliably enlist both in the same transaction. Outbox tests can be unskipped.                                                                        |
+| Per-module outbox contexts | High     | Remove `OutboxDbContext`. Add MassTransit outbox table configurations directly to each publishing module's DbContext. Each module owns its outbox. Requires migrations per module and changes to `BusExtensions`. This is the pattern MassTransit documentation recommends for modular monoliths but is outside the M6 scope. |
+
+The shared `NpgsqlDataSource` option is the preferred path when bandwidth permits. Until then the three outbox tests remain skipped with documented reasoning.
+
+---
+
+### What Is and Is Not Tested in CI
+
+| Area                           | Tested in CI | Notes                                                                                 |
+|--------------------------------|--------------|---------------------------------------------------------------------------------------|
+| Full HTTP request pipeline     | Yes          | All endpoints, authentication, validation, domain rules                               |
+| Cross-module inventory calls   | Yes          | gRPC replaced with direct in-process implementation                                   |
+| Database schema and migrations | Yes          | Run against real Postgres Testcontainer at collection startup                         |
+| Outbox message delivery        | No           | Three tests skipped -- see Issue 3 above                                              |
+| RabbitMQ consumer processing   | No           | Consumers run in the host but outbox delivery not verified in CI                      |
+| Financial period seeding       | Yes          | `/test/reset` seeds an open period before each test class                             |
+| Multi-tenancy enforcement      | Implicitly   | All tests run under a fixed test tenant; cross-tenant isolation not explicitly tested |
+
+---
+
+### Test Infrastructure Files
+
+```
+CoreGearERP.Tests/
+  Infrastructure/
+    Fixtures/
+      IntegrationTestFixture.cs    -- collection-scoped, starts containers, runs migrations
+      PostgresFixture.cs           -- Testcontainers PostgreSQL wrapper
+      RabbitMqFixture.cs           -- Testcontainers RabbitMQ wrapper
+    Helpers/
+      AuthHelper.cs                -- JWT token generation for test requests
+      SeedHelper.cs                -- typed HTTP helpers for full E2E seeding
+      WaitHelper.cs                -- polling utility for async side effects
+    IntegrationTestBase.cs         -- base class, calls /test/reset before each test class
+    IntegrationTestCollection.cs   -- xUnit collection definition
+    IntegrationTestWebFactory.cs   -- WebApplicationFactory with test overrides and MigrateAsync
+  Modules/
+    Inventory/
+    Procurement/
+    Production/
+    Sales/
+    Finance/
+```
+
+**Tradeoff:** A single integration test project with shared containers is fast and catches real regressions but is slower than unit tests and harder to parallelize. The test suite runs in under 15 seconds on CI excluding container startup. This is acceptable for the current scale.
+
+---
 
 ## Data Model Conventions
 
@@ -750,10 +939,10 @@ CancelledAt     timestamptz     -- null until cancelled
 
 Real patterns held back until the code actually needs them:
 
-| Pattern | Add When |
-|---|---|
-| RowVersion / optimistic concurrency | Concurrent edit conflicts surface in testing |
-| Extensions JSONB column | Custom fields become a real requirement at M5 |
-| Temporal pricing tables | Pricing module is built |
-| DocumentSequence table | Invoicing module is built |
-| Reference data tables | Each module needs them organically |
+| Pattern                             | Add When                                      |
+|-------------------------------------|-----------------------------------------------|
+| RowVersion / optimistic concurrency | Concurrent edit conflicts surface in testing  |
+| Extensions JSONB column             | Custom fields become a real requirement at M5 |
+| Temporal pricing tables             | Pricing module is built                       |
+| DocumentSequence table              | Invoicing module is built                     |
+| Reference data tables               | Each module needs them organically            |
