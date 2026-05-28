@@ -41,6 +41,8 @@ public abstract class IntegrationTestBase : IAsyncLifetime
         // Factory is created here so containers are guaranteed started by this point.
         _factory = new IntegrationTestWebFactory(_fixture);
 
+        await _factory.MigrateAsync();
+
         Client = _factory.CreateClient();
         Client.DefaultRequestHeaders.Add("Authorization", AuthHelper.BearerHeaderValue());
         Seed = new SeedHelper(Client);
