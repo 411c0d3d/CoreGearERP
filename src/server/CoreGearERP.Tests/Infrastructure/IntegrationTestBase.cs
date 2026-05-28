@@ -1,7 +1,6 @@
 using Xunit;
 using CoreGearERP.Tests.Infrastructure.Fixtures;
 using CoreGearERP.Tests.Infrastructure.Helpers;
-using Xunit.Abstractions;
 
 namespace CoreGearERP.Tests.Infrastructure;
 
@@ -12,7 +11,8 @@ namespace CoreGearERP.Tests.Infrastructure;
 [Collection(IntegrationTestCollection.Names.Integration)]
 public abstract class IntegrationTestBase : IAsyncLifetime
 {
-    private readonly IntegrationTestWebFactory _factory;
+    private readonly IntegrationTestFixture _fixture;
+    private IntegrationTestWebFactory _factory = null!;
 
     /// <summary>
     /// Gets the authenticated HTTP client for making requests against the test host.
@@ -30,7 +30,7 @@ public abstract class IntegrationTestBase : IAsyncLifetime
     /// <param name="fixture">The shared integration test fixture providing container instances.</param>
     protected IntegrationTestBase(IntegrationTestFixture fixture)
     {
-        _factory = new IntegrationTestWebFactory(fixture);
+        _fixture = fixture;
     }
 
     /// <summary>
@@ -38,6 +38,9 @@ public abstract class IntegrationTestBase : IAsyncLifetime
     /// </summary>
     public virtual async Task InitializeAsync()
     {
+        // Factory is created here so containers are guaranteed started by this point.
+        _factory = new IntegrationTestWebFactory(_fixture);
+
         await _factory.MigrateAsync();
 
         Client = _factory.CreateClient();
