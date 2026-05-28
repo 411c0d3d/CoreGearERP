@@ -109,7 +109,6 @@ public sealed class SalesOrdersTests : IntegrationTestBase
         item.QuantityAvailable.Should().Be(5);
     }
 
-    // [Fact(Skip = "MassTransit bus outbox publish interception requires shared transaction between module and OutboxDbContext. WebApplicationFactory test host does not support cross-schema shared transactions reliably. Outbox delivery tested via E2E flow in development environment.")]
     [Fact]
     public async Task ShipSalesOrder_StockReducedAndFinanceCostEntryCreatedViaOutbox()
     {
@@ -175,9 +174,9 @@ public sealed class SalesOrdersTests : IntegrationTestBase
 
     /// <summary>
     /// Seeds finished goods stock via a minimal procurement and production cycle.
-    /// Assumes the finished product stock item already exists in the given warehouse.
     /// </summary>
-    private async Task SeedFinishedStock(Guid finishedProductId, string finishedProductCode, Guid warehouseId, decimal quantity)
+    private async Task SeedFinishedStock(Guid finishedProductId, string finishedProductCode, Guid warehouseId,
+        decimal quantity)
     {
         var componentCode = $"COMP-SEED-{Guid.NewGuid():N}"[..20];
         var componentProductId = await Seed.CreateProductAsync(componentCode, "Raw Component", "KG");
@@ -207,12 +206,29 @@ public sealed class SalesOrdersTests : IntegrationTestBase
     }
 
     private sealed record IdResponse(Guid Id);
+
     private sealed record CustomerResponse(Guid Id, string Code, string Name);
+
     private sealed record SalesOrderResponse(Guid Id, string Status);
+
     private sealed record SalesOrderDetailResponse(Guid Id, string Status, List<SalesOrderLineResponse> Lines);
-    private sealed record SalesOrderLineResponse(Guid Id, Guid ProductId, decimal QuantityOrdered, decimal QuantityShipped);
-    private sealed record StockItemResponse(Guid Id, string ProductCode, decimal QuantityOnHand, decimal QuantityReserved, decimal QuantityAvailable);
+
+    private sealed record SalesOrderLineResponse(
+        Guid Id,
+        Guid ProductId,
+        decimal QuantityOrdered,
+        decimal QuantityShipped);
+
+    private sealed record StockItemResponse(
+        Guid Id,
+        string ProductCode,
+        decimal QuantityOnHand,
+        decimal QuantityReserved,
+        decimal QuantityAvailable);
+
     private sealed record CostEntryResponse(Guid Id, string SourceType, decimal Amount, bool IsPendingCosting);
+
     private sealed record PurchaseOrderDetailResponse(Guid Id, string Status, List<PurchaseOrderLineResponse> Lines);
+
     private sealed record PurchaseOrderLineResponse(Guid Id, Guid ProductId, decimal Quantity);
 }
