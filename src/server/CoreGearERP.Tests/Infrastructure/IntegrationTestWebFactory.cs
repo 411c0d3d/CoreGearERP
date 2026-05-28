@@ -118,8 +118,17 @@ public sealed class IntegrationTestWebFactory : WebApplicationFactory<Program>
             .UseNpgsql(connectionString)
             .Options;
 
-        await using var context = (TContext)Activator.CreateInstance(typeof(TContext), options)!;
+        var tenant = new MigrationTenant();
+        await using var context = (TContext)Activator.CreateInstance(typeof(TContext), options, tenant)!;
         await context.Database.MigrateAsync();
+    }
+
+    /// <summary>
+    /// Stub tenant used only during migrations where tenant context is not required.
+    /// </summary>
+    private sealed class MigrationTenant : ICurrentTenant
+    {
+        public Guid TenantId => Guid.Empty;
     }
 
     /// <summary>
