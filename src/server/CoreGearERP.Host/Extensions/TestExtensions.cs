@@ -2,6 +2,7 @@ using CoreGearERP.Common.Application.Interfaces;
 using CoreGearERP.Finance.Domain.Entities;
 using CoreGearERP.Finance.Infrastructure.Persistence;
 using CoreGearERP.Inventory.Infrastructure.Persistence;
+using CoreGearERP.Messaging.Infrastructure.Persistence;
 using CoreGearERP.Procurement.Infrastructure.Persistence;
 using CoreGearERP.Production.Infrastructure.Persistence;
 using CoreGearERP.Sales.Infrastructure.Persistence;
@@ -61,6 +62,13 @@ public static class TestExtensions
             await financeContext.SaveChangesAsync();
 
             return Results.Ok(new { message = "Test data cleared." });
+        }).RequireAuthorization();
+
+        app.MapGet("/test/outbox-count", async (OutboxDbContext outbox) =>
+        {
+            var count = await outbox.Set<MassTransit.EntityFrameworkCoreIntegration.OutboxMessage>()
+                .CountAsync();
+            return Results.Ok(new { count });
         }).RequireAuthorization();
 
         return app;

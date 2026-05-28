@@ -30,6 +30,7 @@ public class GetStockItemsQueryHandler : IQueryHandler<GetStockItemsQuery, IRead
 
         return await _context.StockItems
             .Where(s => s.TenantId == _currentTenant.TenantId)
+            .Where(s => query.WarehouseId == null || s.WarehouseId == query.WarehouseId)
             .Select(s => new StockItemDto(
                 s.Id,
                 s.ProductId,

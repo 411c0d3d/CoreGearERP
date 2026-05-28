@@ -17,6 +17,10 @@ public class InventoryCommandService : IInventoryCommandService
 {
     private readonly InventoryDbContext _context;
 
+    /// <summary>
+    /// Initializes a new instance of the InventoryCommandService with the specified InventoryDbContext.
+    /// </summary>
+    /// <param name="context">The InventoryDbContext used for database operations.</param>
     public InventoryCommandService(InventoryDbContext context)
     {
         _context = context;

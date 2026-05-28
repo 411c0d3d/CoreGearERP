@@ -16,8 +16,8 @@ public static class BusExtensions
     /// <summary>
     /// Configures MassTransit with RabbitMQ transport and outbox.
     /// </summary>
-    /// <param name="services"></param>
-    /// <param name="configuration"></param>
+    /// <param name="services">The service collection to register MassTransit into.</param>
+    /// <param name="configuration">The application configuration for RabbitMQ and outbox settings.</param>
     public static IServiceCollection AddBus(
         this IServiceCollection services,
         IConfiguration configuration)
@@ -28,6 +28,8 @@ public static class BusExtensions
             {
                 o.UsePostgres();
                 o.UseBusOutbox();
+                o.QueryDelay = configuration.GetValue<TimeSpan?>("MassTransit:OutboxQueryDelay")
+                               ?? TimeSpan.FromSeconds(10);
             });
 
             x.AddConsumer<GoodsReceivedConsumer>();

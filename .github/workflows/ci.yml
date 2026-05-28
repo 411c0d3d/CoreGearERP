@@ -46,7 +46,7 @@ jobs:
 
       - name: Run integration tests
         run: >
-          dotnet test
+          dotnet test src/server/CoreGearERP.Tests/CoreGearERP.Tests.csproj
           --no-build
           --configuration Release
           --logger "trx;LogFileName=results.trx"
