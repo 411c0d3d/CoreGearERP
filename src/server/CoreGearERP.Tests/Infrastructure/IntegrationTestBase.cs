@@ -48,7 +48,11 @@ public abstract class IntegrationTestBase : IAsyncLifetime
         Seed = new SeedHelper(Client);
 
         var response = await Client.DeleteAsync("/test/reset");
-        response.EnsureSuccessStatusCode();
+        if (!response.IsSuccessStatusCode)
+        {
+            var body = await response.Content.ReadAsStringAsync();
+            throw new Exception($"Reset failed {(int)response.StatusCode}: {body}");
+        }
     }
 
     /// <summary>
