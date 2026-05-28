@@ -41,8 +41,10 @@ public sealed class IntegrationTestWebFactory : WebApplicationFactory<Program>
     {
         builder.UseEnvironment("Development");
 
-        builder.ConfigureAppConfiguration((_, config) =>
+        builder.ConfigureAppConfiguration((context, config) =>
         {
+            config.AddJsonFile("appsettings.json", optional: true);
+            config.AddJsonFile($"appsettings.{context.HostingEnvironment.EnvironmentName}.json", optional: true);
             config.AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["ConnectionStrings:CoreGearERP"] = _fixture.Postgres.ConnectionString,
@@ -164,12 +166,12 @@ public sealed class IntegrationTestWebFactory : WebApplicationFactory<Program>
 
         services.AddScoped<TService, TImplementation>();
     }
+}
 
-    /// <summary>
-    /// Stub tenant used only during migrations where tenant context is not required.
-    /// </summary>
-    private sealed class MigrationTenant : ICurrentTenant
-    {
-        public Guid TenantId => Guid.Empty;
-    }
+/// <summary>
+/// Stub tenant used only during migrations where tenant context is not required.
+/// </summary>
+internal sealed class MigrationTenant : ICurrentTenant
+{
+    public Guid TenantId => Guid.Empty;
 }
